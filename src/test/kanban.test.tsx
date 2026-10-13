@@ -158,7 +158,7 @@ describe('Milestone 4: Kanban Board, DnD & Task Drawer Test Suite', () => {
 
       // Check column counts
       // 'todo' has 1 task, 'in-progress' has 2 tasks, 'done' has 1 task
-      expect(screen.getByText('1')).toBeInTheDocument();
+      expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(2);
       expect(screen.getByText('2')).toBeInTheDocument();
     });
 

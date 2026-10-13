@@ -42,7 +42,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite', () => {
         tasks: [],
         columns: INITIAL_COLUMNS,
         tags: [],
-        __proto__: { injectedAdmin: true },
+        ['__proto__']: { injectedAdmin: true },
       });
 
       const res = importJSON(maliciousJson);

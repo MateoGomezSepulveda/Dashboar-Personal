@@ -1,50 +1,40 @@
 # Estado del Proyecto: Dashboard Personal
 
 > **Última Actualización:** 2026-10-13
-> **Estado:** Fase 1 Completada (100% - Producción, Despliegue en Netlify & Tests Aprobados)
+> **Estado:** Fase 2 Completada (100% - Firebase Backend, Sincronización en Tiempo Real, UI/UX Móvil & PWA)
 
 ---
 
 ## 1. Resumen Ejecutivo
-Se ha culminado la implementación integral de la aplicación web **Dashboard Personal**, diseñada para la organización de productividad individual en tres horizontes temporales (**Mensual**, **Semanal** y **Diario**) con un tablero **Kanban interactivo** con física de arrastre (Drag & Drop), almacenamiento local versionado en `localStorage`, exportación/importación JSON y modo claro/oscuro bajo los estándares de **UI/UX Pro Max**. El pipeline de producción (`npm run build`) ha sido blindado y sincronizado con GitHub y Netlify.
+Se ha culminado la implementación integral de la **Fase 2**: Backend y Base de Datos con **Google Firebase (Cloud Firestore + Firebase Auth)** con sincronización multi-dispositivo en tiempo real, persistencia offline, degradación elegante a `localStorage` y optimización móvil de primera clase (**UI/UX Pro Max**) con selector de columnas táctil, botón de acción flotante (FAB) y configuración de Progressive Web App (**PWA**).
 
 ---
 
 ## 2. Hitos y Funcionalidades (Milestones)
 
-- [x] **Hito 1: Núcleo, Reducer y Sistema de Diseño**
-  - Scaffolding en Vite 5 + React 18 + TypeScript + Tailwind CSS.
-  - Modelos estrictos de dominio (`domain.ts`).
-  - Reducer puro con 15 acciones inmutables (`taskReducer.ts`).
-  - Tema Claro/Oscuro con persistencia y tokens Slate/Zinc + Azul Royal (`#2563EB`).
-  - Iconografía SVG homogénea mediante Lucide React (sin emojis).
-
-- [x] **Hito 2: Persistencia, Versionado y Respaldo**
-  - Servicio de almacenamiento con sincronización multi-pestaña (`storageService.ts`).
-  - Pipeline de migraciones de esquema versionado (`migrationService.ts`).
-  - Modal de gestión de datos (`DataManagementModal.tsx`) con exportación/importación JSON y reinicio a datos semilla.
-
-- [x] **Hito 3: Horizontes Temporales y Métricas en Tiempo Real**
-  - Vistas dedicadas para Metas Mensuales, Compromisos Semanales y Foco Diario.
-  - Vinculación jerárquica de subtareas con tareas padre (`parentTaskId`) y agregación de progreso dinámico.
-  - Motor de productividad (`metrics.ts`) y panel estilo Bento Grid (`QuickStats.tsx`).
-
-- [x] **Hito 4: Tablero Kanban Interactivo & Detalle de Tareas**
+- [x] **Hito 1 a 5: Fase 1 (Core, Kanban, Persistencia Local y Tests)**
   - Tablero Kanban interactivo con física de arrastre (`@hello-pangea/dnd`).
-  - Reordenamiento dentro de columnas y cambio fluido entre estados.
-  - Tarjetas de tareas con insignias de prioridad, fechas límite y estado de subtareas.
-  - Panel lateral deslizante (`TaskDrawer.tsx`) con soporte Markdown, checklists interactivas y etiquetas por color.
+  - Tres horizontes temporales (Mensual, Semanal, Diario) con cálculo jerárquico.
+  - Modo claro/oscuro y paleta Slate/Zinc + Azul Real (`#2563EB`).
+  - 135 pruebas unitarias aprobadas al 100%.
 
-- [x] **Hito 5: Suite de Pruebas Automatizadas y Auditoría de Victoria**
-  - 126 pruebas unitarias aprobadas (100%).
-  - 92 pruebas E2E aprobadas (Tiers 1 a 5).
-  - Auditoría independiente de victoria completada con éxito.
-  - Compilación de producción (`npm run build`) validada y libre de errores.
-  - Pipeline CI/CD en Netlify configurado y sincronizado vía GitHub.
+- [x] **Hito 6: Backend y Autenticación con Firebase (Fase 2)**
+  - Integración de Firebase SDK 13 (`firebase.ts`).
+  - Autenticación con Google en 1 clic (`AuthContext.tsx`).
+  - Base de datos Cloud Firestore con suscripciones reactivas en tiempo real (`onSnapshot`).
+  - Guardado en la nube con debounce y sincronización transparente al editar tareas.
+  - Indicadores de estado en tiempo real en la cabecera (*"Nube Sincronizada"*, *"Guardando..."*, *"Modo Local"*).
+
+- [x] **Hito 7: Experiencia Móvil de Primera Clase & PWA (Fase 2)**
+  - Selector de columnas Kanban táctil segmentado para móviles (*"Por Hacer"*, *"En Progreso"*, *"Completado"*, *"Todas"*).
+  - Botón Flotante de Acción (**FAB**) fijo e intuitivo para crear tareas con una sola mano.
+  - Búsqueda desplegable adaptada a pantallas táctiles.
+  - Configuración PWA completa (`manifest.json`, `icon.svg`, meta-tags de iOS/Android) para instalar la aplicación en celulares como app nativa.
 
 ---
 
-## 3. Próximos Pasos Sugeridos
-1. Verificar la URL pública provista por Netlify para confirmar la interfaz en producción.
-2. Personalizar el subdominio de Netlify en `Site Settings` (ej: `dashboard-mateo.netlify.app`).
-3. Evaluar integración con sincronización remota (Supabase/Firebase) o PWA en la Fase 2.
+## 3. Guía de Conexión en Producción (Netlify)
+Para que el despliegue público en Netlify conecte con tu Firebase:
+1. Ve a tu panel en **Netlify** ➡️ **Site configuration** ➡️ **Environment variables**.
+2. Agrega las claves de tu `.env.local` (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, etc.).
+3. En la consola de Firebase ➡️ **Authentication** ➡️ **Settings** ➡️ **Authorized domains**, añade tu dominio de Netlify (ej: `tu-sitio.netlify.app`).

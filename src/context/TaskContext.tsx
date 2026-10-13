@@ -5,6 +5,12 @@ import { INITIAL_APP_STATE } from '../constants/initialData';
 import { taskReducer, TaskAction, MoveTaskPayload } from './taskReducer';
 import { loadState as loadPersistedState, saveState, STORAGE_KEY } from '../services/storageService';
 import { isValidAppState } from '../services/migrationService';
+import { useAuth } from './AuthContext';
+import {
+  saveDashboardToCloud,
+  loadDashboardFromCloud,
+  subscribeToCloudDashboard,
+} from '../services/firebase';
 
 // Contextos separados para prevenir re-renders superfluos
 export const TaskStateContext = createContext<DashboardAppState | undefined>(undefined);
@@ -21,20 +27,72 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
     initialState || (typeof window !== 'undefined' ? loadPersistedState() : INITIAL_APP_STATE)
   );
 
+  const { user, setSyncStatus } = useAuth();
   const isInitialMount = useRef(true);
+  const isRemoteUpdate = useRef(false);
 
-  // Guardado automático persistente con debounce en cambios de estado
+  // Sincronización en tiempo real con Firestore cuando el usuario está autenticado
+  useEffect(() => {
+    if (!user) return;
+
+    setSyncStatus('syncing');
+    let isSubscribed = true;
+
+    // Verificar si ya existe estado en Firestore; si no, subir el estado local inicial
+    loadDashboardFromCloud(user.uid).then((cloudState) => {
+      if (!isSubscribed) return;
+      if (cloudState && isValidAppState(cloudState)) {
+        isRemoteUpdate.current = true;
+        dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        setSyncStatus('synced');
+      } else {
+        saveDashboardToCloud(user.uid, state).then((ok) => {
+          if (isSubscribed) setSyncStatus(ok ? 'synced' : 'error');
+        });
+      }
+    });
+
+    // Suscripción reactiva a cambios remotos de Firestore
+    const unsubscribe = subscribeToCloudDashboard(user.uid, (cloudState) => {
+      if (!isSubscribed) return;
+      if (cloudState && isValidAppState(cloudState)) {
+        isRemoteUpdate.current = true;
+        dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        setSyncStatus('synced');
+      }
+    });
+
+    return () => {
+      isSubscribed = false;
+      unsubscribe();
+    };
+  }, [user]);
+
+  // Guardado persistente con debounce (localStorage siempre + Firestore si está autenticado)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+
+    if (isRemoteUpdate.current) {
+      isRemoteUpdate.current = false;
+      saveState(state);
+      return;
+    }
+
     const timer = setTimeout(() => {
       saveState(state);
-    }, 200);
+      if (user) {
+        setSyncStatus('syncing');
+        saveDashboardToCloud(user.uid, state).then((success) => {
+          setSyncStatus(success ? 'synced' : 'error');
+        });
+      }
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [state]);
+  }, [state, user]);
 
   // Sincronización multi-pestaña mediante el evento 'storage' del navegador
   useEffect(() => {
