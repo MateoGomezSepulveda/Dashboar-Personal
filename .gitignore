@@ -5,3 +5,4 @@ dist-ssr
 .agents
 .vscode
 .DS_Store
+node_modules
