@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-background: #f8fafc; /* slate-50 */
+  --color-foreground: #0f172a; /* slate-900 */
+  --color-surface-card: #ffffff; /* white */
+  --color-surface-card-foreground: #0f172a;
+  --color-surface-muted: #f1f5f9; /* slate-100 */
+  --color-surface-muted-foreground: #64748b; /* slate-500 */
+  --color-border-subtle: #f1f5f9; /* slate-100 */
+  --color-border-default: #e2e8f0; /* slate-200 */
+  --color-primary: #2563eb; /* blue-600 */
+  --color-primary-hover: #1d4ed8; /* blue-700 */
+}
+
+.dark {
+  --color-background: #020617; /* slate-950 */
+  --color-foreground: #f8fafc; /* slate-50 */
+  --color-surface-card: #0f172a; /* slate-900 */
+  --color-surface-card-foreground: #f8fafc;
+  --color-surface-muted: #1e293b; /* slate-800 */
+  --color-surface-muted-foreground: #94a3b8; /* slate-400 */
+  --color-border-subtle: #1e293b; /* slate-800 */
+  --color-border-default: #334155; /* slate-700 */
+  --color-primary: #3b82f6; /* blue-500 */
+  --color-primary-hover: #60a5fa; /* blue-400 */
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.011em;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Tipografía monoespaciada para números y métricas */
+.tabular-nums {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom Scrollbars elegantes */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #475569;
+}
+
+/* Soporte de accesibilidad para preferencias de reducción de movimiento */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
