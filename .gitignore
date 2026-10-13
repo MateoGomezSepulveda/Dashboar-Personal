@@ -1,8 +1,17 @@
-node_modules
-dist
-dist-ssr
+# Dependencias
+node_modules/
+
+# Compilación de producción
+dist/
+dist-ssr/
+
+# Variables de entorno y credenciales (Seguridad)
+.env
+.env.local
+.env.*.local
 *.local
-.agents
-.vscode
+
+# Caché y configuración de editores/agentes
+.agents/
+.vscode/
 .DS_Store
-node_modules
