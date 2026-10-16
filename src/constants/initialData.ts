@@ -94,7 +94,7 @@ Este tablero está diseñado con **datos de ejemplo** para enseñarte cómo orga
 3. **Semanal (7 días)**: Donde divides tus metas del mes en compromisos concretos para la semana.
 4. **Diario (Hoy)**: Tu tablero de enfoque para ejecutar las tareas del día.
 
-> 💡 *Inicia sesión con el botón **"Conectar"** arriba a la derecha para cargar tus tareas guardadas en la nube. Al cerrar sesión (o tras 2 minutos de inactividad), tus datos privados se limpian de la pantalla y vuelven estos ejemplos.*`,
+> 💡 *Inicia sesión con el botón **"Conectar"** arriba a la derecha para cargar tus tareas guardadas en la nube y recibir notificaciones a la hora programada. Al cerrar sesión, tus datos privados se limpian de la pantalla y vuelven estos ejemplos.*`,
     horizon: 'monthly',
     columnId: 'in-progress',
     priority: 'high',
@@ -216,12 +216,12 @@ En esta pestaña organizas los compromisos que vas a cumplir durante la semana a
   },
   {
     id: 'task-weekly-2',
-    title: '🔒 Seguridad y Cierre Automático por Inactividad (2 min)',
-    description: `### Protección de tu Cuenta
+    title: '🔔 Notificaciones por Hora y Sincronización en la Nube',
+    description: `### Alertas y Privacidad de tu Cuenta
 Cuando inicias sesión con Google:
 - Se cargan automáticamente tus tareas guardadas en la nube (PC y celular).
-- Si pasas **2 minutos sin mover el mouse ni tocar la pantalla**, la sesión se cierra sola por seguridad.
-- Al cerrar sesión, tus tareas privadas se borran de este dispositivo y regresan estos datos de ejemplo.`,
+- Puedes asignarle una **Hora** a cualquier tarea para recibir una notificación con sonido en el momento exacto.
+- Al cerrar sesión manualmente, tus tareas privadas se borran de este dispositivo y regresan estos datos de ejemplo.`,
     horizon: 'weekly',
     columnId: 'todo',
     priority: 'medium',
