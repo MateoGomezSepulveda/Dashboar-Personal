@@ -18,9 +18,17 @@ import {
   CalendarDays,
   SunMedium,
   Columns,
+  ExternalLink,
 } from 'lucide-react';
 import { Task, Horizon, Priority, Tag, Subtask, KanbanColumn } from '../../types/domain';
 import { useTasks } from '../../context/TaskContext';
+import { useAuth } from '../../context/AuthContext';
+import { getGoogleCalendarToken } from '../../services/firebase';
+import {
+  syncTaskToGoogleCalendar,
+  deleteGoogleCalendarEvent,
+  buildGoogleCalendarTemplateUrl,
+} from '../../services/googleCalendarService';
 import { TagSelector } from './TagSelector';
 import { SubtaskList } from './SubtaskList';
 import { cn } from '../../utils/cn';
@@ -226,6 +234,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   onDuplicate,
 }) => {
   const { state, addTask, updateTask, deleteTask, duplicateTask, dispatch } = useTasks();
+  const { user } = useAuth();
   const { columns, tags, tasks } = state;
 
   const isEditing = Boolean(task?.id);
@@ -241,6 +250,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   const [parentTaskId, setParentTaskId] = useState<string>('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [syncWithGCal, setSyncWithGCal] = useState<boolean>(true);
 
   // UI state
   const [descTab, setDescTab] = useState<'edit' | 'preview'>('edit');
@@ -263,6 +273,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setParentTaskId(task.parentTaskId || '');
         setSelectedTagIds(task.tags || []);
         setSubtasks(task.subtasks || []);
+        setSyncWithGCal(true);
       } else {
         setTitle('');
         setDescription('');
@@ -274,6 +285,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setParentTaskId('');
         setSelectedTagIds([]);
         setSubtasks([]);
+        setSyncWithGCal(true);
       }
       setDescTab('edit');
       setValidationError(null);
@@ -343,8 +355,14 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
     }
 
     const resolvedDueDate = dueDate ? dueDate : (dueTime ? getTodayString() : null);
+    const taskId = isEditing && task
+      ? task.id
+      : (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
-    const taskPayload = {
+    const taskPayload: Partial<Task> & { title: string; columnId: string } = {
+      id: taskId,
       title: trimmedTitle,
       description,
       horizon,
@@ -355,6 +373,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
       parentTaskId: parentTaskId ? parentTaskId : null,
       tags: selectedTagIds,
       subtasks,
+      googleCalendarEventId: task?.googleCalendarEventId ?? null,
     };
 
     if (onSave) {
@@ -365,6 +384,20 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
       } else {
         addTask(taskPayload);
       }
+
+      // Sincronizar automáticamente en segundo plano con Google Calendar si tiene fecha/hora y token activo
+      const gcalToken = getGoogleCalendarToken();
+      if (user && gcalToken && syncWithGCal && (resolvedDueDate || dueTime)) {
+        syncTaskToGoogleCalendar(taskPayload, gcalToken)
+          .then((eventId) => {
+            if (eventId) {
+              updateTask(taskId, { googleCalendarEventId: eventId });
+            }
+          })
+          .catch((err) => {
+            console.warn('No se pudo sincronizar automáticamente con Google Calendar:', err);
+          });
+      }
     }
 
     onClose();
@@ -372,6 +405,10 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
 
   const handleDelete = () => {
     if (!task) return;
+    const gcalToken = getGoogleCalendarToken();
+    if (user && gcalToken && task.googleCalendarEventId) {
+      deleteGoogleCalendarEvent(task.googleCalendarEventId, gcalToken).catch(() => {});
+    }
     if (onDelete) {
       onDelete(task.id);
     } else {
@@ -684,6 +721,41 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
               />
             </div>
           </div>
+
+          {/* Sincronización con Google Calendar (visible cuando tiene fecha u hora) */}
+          {(dueDate || dueTime) && (
+            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/25 border border-blue-200/70 dark:border-blue-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={syncWithGCal}
+                  onChange={(e) => setSyncWithGCal(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <CalendarDays className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>
+                  {task?.googleCalendarEventId
+                    ? 'Actualizar evento vinculado en Google Calendar'
+                    : 'Sincronizar automáticamente con Google Calendar'}
+                </span>
+              </label>
+
+              <a
+                href={buildGoogleCalendarTemplateUrl({
+                  title: title.trim() || 'Nueva Tarea',
+                  description,
+                  dueDate: dueDate || getTodayString(),
+                  dueTime: dueTime || null,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+              >
+                <span>Abrir en Google Calendar</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
 
           {/* Cross-Horizon Linking (Parent Task Selector) */}
           {horizon !== 'monthly' && (

@@ -10,6 +10,15 @@ import { TaskDrawer } from './components/task/TaskDrawer';
 import { Task, Horizon } from './types/domain';
 import { getTodayString } from './utils/dateUtils';
 import {
+  getGoogleCalendarToken,
+  authorizeGoogleCalendar,
+} from './services/firebase';
+import {
+  syncTaskToGoogleCalendar,
+  fetchUpcomingGoogleCalendarEvents,
+  parseGoogleEventDateTime,
+} from './services/googleCalendarService';
+import {
   Sun,
   Moon,
   Layers,
@@ -24,6 +33,8 @@ import {
   Bell,
   Clock,
   CheckCircle2,
+  CalendarDays,
+  RefreshCw,
 } from 'lucide-react';
 
 // Sonido de notificación sintetizado con Web Audio API (sin depender de archivos externos)
@@ -58,6 +69,8 @@ function playNotificationChime() {
 interface DashboardHeaderProps {
   onOpenDataModal: () => void;
   onOpenNewTask: () => void;
+  onSyncGoogleCalendar: () => void;
+  isSyncingCalendar: boolean;
 }
 
 function GoogleIcon() {
@@ -83,7 +96,12 @@ function GoogleIcon() {
   );
 }
 
-function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProps) {
+function DashboardHeader({
+  onOpenDataModal,
+  onOpenNewTask,
+  onSyncGoogleCalendar,
+  isSyncingCalendar,
+}: DashboardHeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user, isConfigured, syncStatus, login, logout } = useAuth();
   const { state, setSearch } = useTasks();
@@ -134,7 +152,7 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
         {/* Temporal Horizon Selector Navigation (Desktop) */}
         <HorizonNav className="hidden md:inline-flex" />
 
-        {/* Right tools: Search, Google Auth, New Task, Backup & Theme */}
+        {/* Right tools: Search, Google Auth, Google Calendar Sync, New Task, Backup & Theme */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Desktop Search input */}
           <div className="relative hidden sm:block w-40 md:w-48 lg:w-56">
@@ -158,9 +176,30 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
             {isMobileSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
           </button>
 
+          {/* Google Calendar Sync Button */}
+          {user && (
+            <button
+              type="button"
+              onClick={onSyncGoogleCalendar}
+              disabled={isSyncingCalendar}
+              title="Sincronizar con Google Calendar (Importar y Exportar)"
+              aria-label="Sincronizar con Google Calendar"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/70 transition-all cursor-pointer disabled:opacity-60"
+            >
+              {isSyncingCalendar ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+              ) : (
+                <CalendarDays className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              )}
+              <span className="hidden lg:inline">
+                {isSyncingCalendar ? 'Sincronizando...' : 'Calendar'}
+              </span>
+            </button>
+          )}
+
           {/* Google Auth / User Profile */}
           {user ? (
-            <div className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 sm:gap-2 pl-1 border-l border-slate-200 dark:border-slate-800">
               <div
                 className="flex items-center gap-2"
                 title={`Sesión iniciada como ${user.email}`}
@@ -260,7 +299,7 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
 }
 
 function MainDashboard() {
-  const { state, updateTask } = useTasks();
+  const { state, addTask, updateTask } = useTasks();
   const { tasks, columns } = state;
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
@@ -268,9 +307,96 @@ function MainDashboard() {
   const [drawerInitialColumn, setDrawerInitialColumn] = useState<string | undefined>(undefined);
   const [drawerInitialHorizon, setDrawerInitialHorizon] = useState<Horizon | undefined>(undefined);
 
+  // Estado para sincronización bidireccional con Google Calendar
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [calendarNotice, setCalendarNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
   // Estado de notificaciones activas en pantalla cuando llega la hora de una tarea
   const [dueAlerts, setDueAlerts] = useState<Task[]>([]);
   const notifiedKeysRef = useRef<Set<string>>(new Set());
+
+  const handleSyncGoogleCalendar = async () => {
+    setIsSyncingCalendar(true);
+    setCalendarNotice(null);
+
+    try {
+      let token = getGoogleCalendarToken();
+      if (!token) {
+        token = await authorizeGoogleCalendar();
+      }
+      if (!token) {
+        throw new Error('No se otorgó permiso de acceso a Google Calendar.');
+      }
+
+      // 1. Exportar tareas programadas del Dashboard hacia Google Calendar
+      let exportedCount = 0;
+      const scheduledTasks = tasks.filter((t) => {
+        const col = columns.find((c) => c.id === t.columnId);
+        const isDone = Boolean(col?.isCompletedColumn || t.columnId === 'done' || t.completedAt);
+        return !isDone && (t.dueDate || t.dueTime);
+      });
+
+      for (const task of scheduledTasks) {
+        if (!task.googleCalendarEventId) {
+          const eventId = await syncTaskToGoogleCalendar(task, token);
+          if (eventId) {
+            updateTask(task.id, { googleCalendarEventId: eventId });
+            exportedCount++;
+          }
+        }
+      }
+
+      // 2. Importar eventos próximos desde Google Calendar hacia el Dashboard
+      const remoteEvents = await fetchUpcomingGoogleCalendarEvents(token);
+      const todayStr = getTodayString();
+      let importedCount = 0;
+
+      for (const ev of remoteEvents) {
+        const alreadyExists = tasks.some(
+          (t) =>
+            t.googleCalendarEventId === ev.id ||
+            (ev.summary && t.title.replace(/^📌\s*/, '').trim().toLowerCase() === ev.summary.replace(/^📌\s*/, '').trim().toLowerCase())
+        );
+
+        if (!alreadyExists && ev.summary) {
+          const { dueDate, dueTime } = parseGoogleEventDateTime(ev);
+          const cleanTitle = ev.summary.replace(/^📌\s*/, '').trim();
+          const horizon: Horizon = dueDate === todayStr ? 'daily' : 'weekly';
+
+          addTask({
+            title: cleanTitle,
+            description: ev.description || 'Evento importado desde Google Calendar',
+            horizon,
+            columnId: columns[0]?.id || 'todo',
+            priority: 'medium',
+            dueDate,
+            dueTime,
+            googleCalendarEventId: ev.id,
+          });
+          importedCount++;
+        }
+      }
+
+      setCalendarNotice({
+        type: 'success',
+        message: `Google Calendar sincronizado: ${exportedCount} tarea(s) enviada(s) y ${importedCount} evento(s) nuevo(s) importado(s).`,
+      });
+      setTimeout(() => setCalendarNotice(null), 6000);
+    } catch (err: any) {
+      console.error('Error sincronizando con Google Calendar:', err);
+      setCalendarNotice({
+        type: 'error',
+        message:
+          err?.message ||
+          'No se pudo sincronizar con Google Calendar. Verifica que la API de Google Calendar esté habilitada en tu proyecto.',
+      });
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
 
   // Reloj vigilante de tareas programadas con hora (revisa cada 5 segundos)
   useEffect(() => {
@@ -357,7 +483,34 @@ function MainDashboard() {
       <DashboardHeader
         onOpenDataModal={() => setIsDataModalOpen(true)}
         onOpenNewTask={() => handleOpenNewTask()}
+        onSyncGoogleCalendar={handleSyncGoogleCalendar}
+        isSyncingCalendar={isSyncingCalendar}
       />
+
+      {/* Aviso de estado de sincronización con Google Calendar */}
+      {calendarNotice && (
+        <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-3">
+          <div
+            className={`px-4 py-2.5 rounded-xl border text-xs font-medium flex items-center justify-between gap-3 ${
+              calendarNotice.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 shrink-0" />
+              <span>{calendarNotice.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCalendarNotice(null)}
+              className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Alertas flotantes cuando llega la hora de una tarea */}
       {dueAlerts.length > 0 && (

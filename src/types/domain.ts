@@ -91,6 +91,8 @@ export interface Task {
   updatedAt: string;
   /** ISO 8601 completion timestamp when moved to a completed column, or null */
   completedAt?: string | null;
+  /** Optional Google Calendar Event ID when synced with primary Google Calendar */
+  googleCalendarEventId?: string | null;
 }
 
 // ----------------------------------------------------------------------------

@@ -80,6 +80,7 @@ function backfillTaskDefaults(raw: any, index: number): Task {
   const updatedAt = typeof task.updatedAt === 'string' ? task.updatedAt : new Date().toISOString();
   const completedAt = typeof task.completedAt === 'string' ? task.completedAt : null;
   const parentTaskId = typeof task.parentTaskId === 'string' ? task.parentTaskId : null;
+  const googleCalendarEventId = typeof task.googleCalendarEventId === 'string' ? task.googleCalendarEventId : null;
 
   return {
     id,
@@ -97,6 +98,7 @@ function backfillTaskDefaults(raw: any, index: number): Task {
     createdAt,
     updatedAt,
     completedAt,
+    googleCalendarEventId,
   };
 }
 

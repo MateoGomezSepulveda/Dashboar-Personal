@@ -61,6 +61,7 @@ export function taskReducer(state: DashboardAppState, action: TaskAction): Dashb
         createdAt: payload.createdAt || now,
         updatedAt: payload.updatedAt || now,
         completedAt: payload.completedAt !== undefined ? payload.completedAt : (isCompleted ? now : null),
+        googleCalendarEventId: payload.googleCalendarEventId ?? null,
       };
 
       // Si se inserta en un orden específico, reordenar la columna contiguamente

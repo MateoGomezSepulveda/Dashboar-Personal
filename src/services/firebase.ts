@@ -55,24 +55,70 @@ if (isFirebaseConfigured) {
   }
 }
 
+const GCAL_TOKEN_KEY = 'personal_dashboard_gcal_token';
+const GCAL_TOKEN_EXPIRY_KEY = 'personal_dashboard_gcal_token_expiry';
+
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+export function getGoogleCalendarToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem(GCAL_TOKEN_KEY);
+  const expiry = localStorage.getItem(GCAL_TOKEN_EXPIRY_KEY);
+  if (!token) return null;
+  if (expiry && Date.now() > Number(expiry)) {
+    localStorage.removeItem(GCAL_TOKEN_KEY);
+    localStorage.removeItem(GCAL_TOKEN_EXPIRY_KEY);
+    return null;
+  }
+  return token;
+}
+
+export function setGoogleCalendarToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem(GCAL_TOKEN_KEY, token);
+    // Los tokens OAuth de Google duran ~3600s (guardamos 55 min de validez segura)
+    localStorage.setItem(GCAL_TOKEN_EXPIRY_KEY, String(Date.now() + 55 * 60 * 1000));
+  } else {
+    localStorage.removeItem(GCAL_TOKEN_KEY);
+    localStorage.removeItem(GCAL_TOKEN_EXPIRY_KEY);
+  }
+}
+
 /**
- * Autenticación con Google vía ventana emergente
+ * Autenticación con Google vía ventana emergente (incluye permiso de Google Calendar)
  */
 export async function loginWithGoogle(): Promise<User | null> {
   if (!auth) {
     throw new Error('Firebase no está configurado. Por favor configura tus variables en .env.local');
   }
   const result = await signInWithPopup(auth, googleProvider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  if (credential?.accessToken) {
+    setGoogleCalendarToken(credential.accessToken);
+  }
   return result.user;
+}
+
+/**
+ * Solicita o renueva el token de acceso a Google Calendar mediante popup
+ */
+export async function authorizeGoogleCalendar(): Promise<string | null> {
+  if (!auth) return null;
+  const result = await signInWithPopup(auth, googleProvider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken || null;
+  setGoogleCalendarToken(token);
+  return token;
 }
 
 /**
  * Cierre de sesión de usuario
  */
 export async function logoutUser(): Promise<void> {
+  setGoogleCalendarToken(null);
   if (!auth) return;
   await signOut(auth);
 }
