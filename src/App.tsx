@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TaskProvider, useTasks } from './context/TaskContext';
@@ -8,6 +8,7 @@ import { HorizonView } from './components/horizons/HorizonView';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { TaskDrawer } from './components/task/TaskDrawer';
 import { Task, Horizon } from './types/domain';
+import { getTodayString } from './utils/dateUtils';
 import {
   Sun,
   Moon,
@@ -20,7 +21,39 @@ import {
   LogOut,
   X,
   AlertCircle,
+  Bell,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
+
+// Sonido de notificación sintetizado con Web Audio API (sin depender de archivos externos)
+function playNotificationChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    const playNote = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    const now = ctx.currentTime;
+    playNote(587.33, now, 0.22); // D5
+    playNote(880, now + 0.18, 0.45); // A5
+  } catch {
+    // Ignorar si el navegador bloquea el audio antes de interacción
+  }
+}
 
 interface DashboardHeaderProps {
   onOpenDataModal: () => void;
@@ -227,11 +260,83 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
 }
 
 function MainDashboard() {
+  const { state, updateTask } = useTasks();
+  const { tasks, columns } = state;
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [drawerInitialColumn, setDrawerInitialColumn] = useState<string | undefined>(undefined);
   const [drawerInitialHorizon, setDrawerInitialHorizon] = useState<Horizon | undefined>(undefined);
+
+  // Estado de notificaciones activas en pantalla cuando llega la hora de una tarea
+  const [dueAlerts, setDueAlerts] = useState<Task[]>([]);
+  const notifiedKeysRef = useRef<Set<string>>(new Set());
+
+  // Reloj vigilante de tareas programadas con hora (revisa cada 5 segundos)
+  useEffect(() => {
+    const checkScheduledTasks = () => {
+      const now = new Date();
+      const todayStr = getTodayString(now);
+      const currentHH = String(now.getHours()).padStart(2, '0');
+      const currentMM = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHH}:${currentMM}`;
+
+      tasks.forEach((task) => {
+        if (!task.dueTime) return;
+
+        // Ignorar si la tarea ya está en una columna de completado
+        const col = columns.find((c) => c.id === task.columnId);
+        const isDone = Boolean(col?.isCompletedColumn || task.columnId === 'done' || task.completedAt);
+        if (isDone) return;
+
+        // Si tiene fecha asignada debe coincidir con hoy; si no tiene fecha se asume hoy
+        const targetDate = task.dueDate || todayStr;
+        if (targetDate !== todayStr) return;
+
+        if (task.dueTime === currentTimeStr) {
+          const notificationKey = `${task.id}-${targetDate}-${task.dueTime}`;
+          if (!notifiedKeysRef.current.has(notificationKey)) {
+            notifiedKeysRef.current.add(notificationKey);
+
+            // 1. Reproducir sonido de alerta
+            playNotificationChime();
+
+            // 2. Mostrar alerta visual dentro de la aplicación
+            setDueAlerts((prev) => {
+              if (prev.some((t) => t.id === task.id)) return prev;
+              return [task, ...prev];
+            });
+
+            // 3. Disparar notificación nativa del navegador / sistema operativo si está permitida
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                new Notification('⏰ ¡Es hora de cumplir tu tarea!', {
+                  body: `${task.title} (${task.dueTime})`,
+                  icon: '/icon.svg',
+                });
+              } catch {
+                // Fallback cubierto por el banner visual en pantalla
+              }
+            }
+          }
+        }
+      });
+    };
+
+    checkScheduledTasks();
+    const intervalId = setInterval(checkScheduledTasks, 5000);
+    return () => clearInterval(intervalId);
+  }, [tasks, columns]);
+
+  const handleDismissAlert = (taskId: string) => {
+    setDueAlerts((prev) => prev.filter((t) => t.id !== taskId));
+  };
+
+  const handleCompleteFromAlert = (task: Task) => {
+    const doneCol = columns.find((c) => c.isCompletedColumn)?.id || 'done';
+    updateTask(task.id, { columnId: doneCol, completedAt: new Date().toISOString() });
+    handleDismissAlert(task.id);
+  };
 
   const handleOpenEditTask = (task: Task) => {
     setSelectedTask(task);
@@ -253,6 +358,75 @@ function MainDashboard() {
         onOpenDataModal={() => setIsDataModalOpen(true)}
         onOpenNewTask={() => handleOpenNewTask()}
       />
+
+      {/* Alertas flotantes cuando llega la hora de una tarea */}
+      {dueAlerts.length > 0 && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92vw] max-w-md space-y-2 pointer-events-auto"
+        >
+          {dueAlerts.map((alertTask) => (
+            <div
+              key={alertTask.id}
+              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-amber-500 shadow-2xl shadow-amber-500/20 flex flex-col gap-3 animate-in slide-in-from-top-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="p-2 rounded-xl bg-amber-500 text-white shrink-0 shadow-sm">
+                    <Bell className="w-4 h-4 animate-bounce" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        ¡Hora de cumplir tu tarea!
+                      </span>
+                      {alertTask.dueTime && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                          <Clock className="w-3 h-3" />
+                          {alertTask.dueTime}
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50 truncate mt-0.5">
+                      {alertTask.title}
+                    </h4>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDismissAlert(alertTask.id)}
+                  aria-label="Cerrar notificación"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDismissAlert(alertTask.id);
+                    handleOpenEditTask(alertTask);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Ver tarea
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCompleteFromAlert(alertTask)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Marcar Completada</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl w-full min-w-0 overflow-x-hidden mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5 pb-24 md:pb-6">
         {/* Mobile Horizon Navigation */}

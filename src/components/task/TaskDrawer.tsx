@@ -237,6 +237,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   const [columnId, setColumnId] = useState('todo');
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueDate, setDueDate] = useState<string>('');
+  const [dueTime, setDueTime] = useState<string>('');
   const [parentTaskId, setParentTaskId] = useState<string>('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -258,6 +259,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setColumnId(task.columnId || (columns[0]?.id ?? 'todo'));
         setPriority(task.priority || 'medium');
         setDueDate(task.dueDate || '');
+        setDueTime(task.dueTime || '');
         setParentTaskId(task.parentTaskId || '');
         setSelectedTagIds(task.tags || []);
         setSubtasks(task.subtasks || []);
@@ -268,6 +270,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setColumnId(initialColumnId || (columns[0]?.id ?? 'todo'));
         setPriority('medium');
         setDueDate('');
+        setDueTime('');
         setParentTaskId('');
         setSelectedTagIds([]);
         setSubtasks([]);
@@ -335,13 +338,20 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
       return;
     }
 
+    if (dueTime && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    const resolvedDueDate = dueDate ? dueDate : (dueTime ? getTodayString() : null);
+
     const taskPayload = {
       title: trimmedTitle,
       description,
       horizon,
       columnId,
       priority,
-      dueDate: dueDate ? dueDate : null,
+      dueDate: resolvedDueDate,
+      dueTime: dueTime ? dueTime : null,
       parentTaskId: parentTaskId ? parentTaskId : null,
       tags: selectedTagIds,
       subtasks,
@@ -560,53 +570,119 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
             </div>
           </div>
 
-          {/* Due Date & Quick Date Buttons */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Fecha Límite</span>
-              </span>
-              <div className="flex items-center gap-1 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setDueDate(getTodayString())}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
-                >
-                  Hoy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDueDate(addDays(getTodayString(), 1))}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
-                >
-                  Mañana
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDueDate(addDays(getTodayString(), 7))}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
-                >
-                  7 días
-                </button>
-                {dueDate && (
+          {/* Due Date & Due Time (Notification) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Fecha Límite */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Fecha Límite</span>
+                </span>
+                <div className="flex items-center gap-1 text-[11px]">
                   <button
                     type="button"
-                    onClick={() => setDueDate('')}
-                    className="px-2 py-0.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                    onClick={() => setDueDate(getTodayString())}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
                   >
-                    Borrar
+                    Hoy
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(addDays(getTodayString(), 1))}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    Mañana
+                  </button>
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => setDueDate('')}
+                      className="px-2 py-0.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
               </div>
+
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
             </div>
 
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
+            {/* Hora de Recordatorio / Notificación */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Hora (Notificación)</span>
+                </span>
+                <div className="flex items-center gap-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(Date.now() + 60 * 1000);
+                      const hh = String(d.getHours()).padStart(2, '0');
+                      const mm = String(d.getMinutes()).padStart(2, '0');
+                      setDueTime(`${hh}:${mm}`);
+                      if (!dueDate) setDueDate(getTodayString());
+                      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission().catch(() => {});
+                      }
+                    }}
+                    title="Programar en 1 minuto para probar"
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    +1 min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(Date.now() + 60 * 60 * 1000);
+                      const hh = String(d.getHours()).padStart(2, '0');
+                      const mm = String(d.getMinutes()).padStart(2, '0');
+                      setDueTime(`${hh}:${mm}`);
+                      if (!dueDate) setDueDate(getTodayString());
+                      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission().catch(() => {});
+                      }
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    +1h
+                  </button>
+                  {dueTime && (
+                    <button
+                      type="button"
+                      onClick={() => setDueTime('')}
+                      className="px-2 py-0.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <input
+                type="time"
+                aria-label="Hora de la tarea"
+                value={dueTime}
+                onChange={(e) => {
+                  setDueTime(e.target.value);
+                  if (e.target.value && !dueDate) {
+                    setDueDate(getTodayString());
+                  }
+                  if (e.target.value && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().catch(() => {});
+                  }
+                }}
+                className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
           </div>
 
           {/* Cross-Horizon Linking (Parent Task Selector) */}

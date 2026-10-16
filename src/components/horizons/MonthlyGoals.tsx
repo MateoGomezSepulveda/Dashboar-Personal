@@ -168,10 +168,20 @@ export const MonthlyGoals: React.FC<MonthlyGoalsProps> = ({ className, onAddTask
                     )}
                   </div>
 
-                  {goal.dueDate && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Vence: {formatDateShort(goal.dueDate)} ({getRelativeDateLabel(goal.dueDate)})</span>
+                  {(goal.dueDate || goal.dueTime) && (
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      {goal.dueDate && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Vence: {formatDateShort(goal.dueDate)} ({getRelativeDateLabel(goal.dueDate)})</span>
+                        </span>
+                      )}
+                      {goal.dueTime && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 font-mono font-semibold">
+                          <Clock className="w-3 h-3 text-amber-500" />
+                          <span>{goal.dueTime}</span>
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

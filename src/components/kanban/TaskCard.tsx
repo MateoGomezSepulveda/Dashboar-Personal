@@ -3,6 +3,7 @@ import { Draggable } from '@hello-pangea/dnd';
 import {
   GripVertical,
   Calendar,
+  Clock,
   AlertCircle,
   MoreVertical,
   Copy,
@@ -227,26 +228,36 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           )}
 
-          {/* Card Footer: Due Date & Category Tags */}
+          {/* Card Footer: Due Date, Time & Category Tags */}
           <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800/80">
-            {/* Due Date Indicator */}
-            {task.dueDate ? (
-              <div
-                className={cn(
-                  'flex items-center gap-1 text-[11px] font-medium',
-                  overdue
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : dueToday
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-slate-500 dark:text-slate-400'
+            {/* Due Date & Time Indicator */}
+            {task.dueDate || task.dueTime ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {task.dueDate && (
+                  <div
+                    className={cn(
+                      'flex items-center gap-1 text-[11px] font-medium',
+                      overdue
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : dueToday
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-slate-500 dark:text-slate-400'
+                    )}
+                  >
+                    {overdue ? (
+                      <AlertCircle className="w-3 h-3 text-rose-500" />
+                    ) : (
+                      <Calendar className="w-3 h-3" />
+                    )}
+                    <span>{relativeDateLabel}</span>
+                  </div>
                 )}
-              >
-                {overdue ? (
-                  <AlertCircle className="w-3 h-3 text-rose-500" />
-                ) : (
-                  <Calendar className="w-3 h-3" />
+                {task.dueTime && (
+                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 text-[10px] font-mono font-semibold">
+                    <Clock className="w-2.5 h-2.5 text-amber-500" />
+                    <span>{task.dueTime}</span>
+                  </div>
                 )}
-                <span>{relativeDateLabel}</span>
               </div>
             ) : (
               <span />
