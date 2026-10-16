@@ -58,7 +58,7 @@ export const HorizonNav: React.FC<HorizonNavProps> = ({ className }) => {
       role="tablist"
       aria-label="Filtro de horizontes temporales"
       className={cn(
-        'inline-flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-inner backdrop-blur-sm transition-colors',
+        'grid grid-cols-4 w-full md:w-auto md:inline-flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-inner backdrop-blur-sm transition-colors',
         className
       )}
     >
@@ -77,7 +77,7 @@ export const HorizonNav: React.FC<HorizonNavProps> = ({ className }) => {
             title={tab.description}
             onClick={() => setHorizonFilter(tab.id)}
             className={cn(
-              'relative flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-xs font-medium rounded-xl transition-all duration-200 ease-out select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1',
+              'relative flex items-center justify-center gap-1 sm:gap-2 px-1.5 py-2 sm:px-3 md:px-4 md:py-2 text-[11px] sm:text-xs font-medium rounded-xl transition-all duration-200 ease-out select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 min-w-0 cursor-pointer',
               isSelected
                 ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-semibold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
@@ -85,21 +85,23 @@ export const HorizonNav: React.FC<HorizonNavProps> = ({ className }) => {
           >
             <Icon
               className={cn(
-                'w-4 h-4 transition-transform duration-200',
+                'w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200',
                 isSelected ? 'scale-110 text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
               )}
             />
-            <span>{tab.label}</span>
-            <span
-              className={cn(
-                'tabular-nums font-mono text-[10px] px-1.5 py-0.5 rounded-full transition-colors',
-                isSelected
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 font-bold border border-blue-200/60 dark:border-blue-800/60'
-                  : 'bg-slate-200/70 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-              )}
-            >
-              {count}
-            </span>
+            <span className="truncate">{tab.label}</span>
+            {tab.id !== 'all' && (
+              <span
+                className={cn(
+                  'hidden sm:inline-block tabular-nums font-mono text-[10px] px-1.5 py-0.5 rounded-full transition-colors shrink-0',
+                  isSelected
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 font-bold border border-blue-200/60 dark:border-blue-800/60'
+                    : 'bg-slate-200/70 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                )}
+              >
+                {count}
+              </span>
+            )}
           </button>
         );
       })}

@@ -159,7 +159,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       ) : (
         /* DragDropContext wrapping the board */
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -webkit-overflow-scrolling-touch md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible md:pb-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
             {columns
               .filter(
                 (col) => activeMobileColumn === 'all' || col.id === activeMobileColumn || window.innerWidth >= 768
@@ -172,12 +172,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 return (
                   <div
                     key={column.id}
-                    className={cn(
-                      'flex-shrink-0 snap-center md:w-auto',
-                      activeMobileColumn === 'all'
-                        ? 'w-[85vw] sm:w-[340px]'
-                        : 'w-full'
-                    )}
+                    className="w-full min-w-0"
                   >
                     <KanbanColumn
                       column={column}

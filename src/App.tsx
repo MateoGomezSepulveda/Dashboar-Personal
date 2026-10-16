@@ -59,15 +59,15 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
 
   return (
     <header className="sticky top-0 z-30 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
         {/* Brand identity */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
-            <Layers className="w-5 h-5" />
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+            <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
-              <span>Personal Dashboard</span>
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-base font-bold tracking-tight text-slate-900 dark:text-slate-50 truncate">
+              Personal Dashboard
             </h1>
             <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
               {syncStatus === 'synced' && (
@@ -102,7 +102,7 @@ function DashboardHeader({ onOpenDataModal, onOpenNewTask }: DashboardHeaderProp
         <HorizonNav className="hidden md:inline-flex" />
 
         {/* Right tools: Search, Google Auth, New Task, Backup & Theme */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Desktop Search input */}
           <div className="relative hidden sm:block w-40 md:w-48 lg:w-56">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -248,15 +248,15 @@ function MainDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 flex flex-col font-sans transition-colors relative">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 flex flex-col font-sans transition-colors relative">
       <DashboardHeader
         onOpenDataModal={() => setIsDataModalOpen(true)}
         onOpenNewTask={() => handleOpenNewTask()}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 md:pb-6">
+      <main className="flex-1 max-w-7xl w-full min-w-0 overflow-x-hidden mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5 pb-24 md:pb-6">
         {/* Mobile Horizon Navigation */}
-        <div className="md:hidden mb-4 flex justify-center">
+        <div className="md:hidden mb-4 w-full">
           <HorizonNav />
         </div>
 

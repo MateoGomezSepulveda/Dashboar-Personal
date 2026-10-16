@@ -19,13 +19,13 @@ import {
 } from 'firebase/firestore';
 import type { DashboardAppState } from '../types/domain';
 
-// Check if Firebase environment variables are provided
-const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+// Check if Firebase environment variables are provided (with fallback to project client config for Netlify)
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCLDlxqyd4DI1_Aj_wtJDACqPSpxFDLAEI';
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'dashboard-personal-mateo.firebaseapp.com';
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'dashboard-personal-mateo';
+const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'dashboard-personal-mateo.firebasestorage.app';
+const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '810853367735';
+const appId = import.meta.env.VITE_FIREBASE_APP_ID || '1:810853367735:web:311b47ab1a70d5c1253232';
 
 export const isFirebaseConfigured = Boolean(
   apiKey && apiKey !== 'tu_api_key_aqui' && projectId
