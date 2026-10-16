@@ -86,10 +86,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          {...provided.dragHandleProps}
           onClick={() => onEdit(task)}
           data-testid={`task-card-${task.id}`}
           className={cn(
-            'group relative rounded-xl p-3.5 bg-white dark:bg-slate-900 border transition-all cursor-pointer select-none',
+            'group relative rounded-xl p-3.5 bg-white dark:bg-slate-900 border transition-all cursor-grab active:cursor-grabbing select-none',
             snapshot.isDragging
               ? 'shadow-2xl shadow-blue-500/15 dark:shadow-black/70 ring-2 ring-blue-500 border-transparent scale-[1.02] rotate-1 z-50'
               : 'border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-0.5'
@@ -98,12 +99,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {/* Card Top Row: Grip Handle, Badges & Action Menu */}
           <div className="flex items-center justify-between gap-1.5 mb-2.5">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Drag Handle */}
+              {/* Drag Handle Indicator */}
               <div
-                {...provided.dragHandleProps}
-                onClick={(e) => e.stopPropagation()}
                 title="Arrastrar tarjeta"
-                className="p-1 -ml-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1 -ml-1 rounded-md text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors"
               >
                 <GripVertical className="w-3.5 h-3.5" />
               </div>
