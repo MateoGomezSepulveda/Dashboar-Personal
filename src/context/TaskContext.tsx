@@ -30,34 +30,53 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
   const { user, setSyncStatus } = useAuth();
   const isInitialMount = useRef(true);
   const isRemoteUpdate = useRef(false);
+  const isCloudHydrated = useRef(false);
+  const lastSyncedJson = useRef<string>('');
 
   // Sincronización en tiempo real con Firestore cuando el usuario está autenticado
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      isCloudHydrated.current = false;
+      return;
+    }
 
     setSyncStatus('syncing');
     let isSubscribed = true;
+    isCloudHydrated.current = false;
 
-    // Verificar si ya existe estado en Firestore; si no, subir el estado local inicial
+    // 1. Primero descargar el estado de la nube antes de permitir cualquier escritura local -> nube
     loadDashboardFromCloud(user.uid).then((cloudState) => {
       if (!isSubscribed) return;
       if (cloudState && isValidAppState(cloudState)) {
+        const currentSignature = `${JSON.stringify(cloudState.tasks)}|${JSON.stringify(cloudState.columns)}`;
+        lastSyncedJson.current = currentSignature;
         isRemoteUpdate.current = true;
         dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        isCloudHydrated.current = true;
         setSyncStatus('synced');
       } else {
+        // Solo si el usuario no tiene ningún documento en la nube aún, subimos el estado actual
+        isCloudHydrated.current = true;
         saveDashboardToCloud(user.uid, state).then((ok) => {
           if (isSubscribed) setSyncStatus(ok ? 'synced' : 'error');
         });
       }
     });
 
-    // Suscripción reactiva a cambios remotos de Firestore
+    // 2. Suscripción en tiempo real a cambios hechos desde otros dispositivos (PC <-> Celular)
     const unsubscribe = subscribeToCloudDashboard(user.uid, (cloudState) => {
       if (!isSubscribed) return;
       if (cloudState && isValidAppState(cloudState)) {
-        isRemoteUpdate.current = true;
-        dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        const incomingTasksJson = JSON.stringify(cloudState.tasks);
+        const incomingColsJson = JSON.stringify(cloudState.columns);
+        const currentSignature = `${incomingTasksJson}|${incomingColsJson}`;
+
+        if (currentSignature !== lastSyncedJson.current) {
+          lastSyncedJson.current = currentSignature;
+          isRemoteUpdate.current = true;
+          dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        }
+        isCloudHydrated.current = true;
         setSyncStatus('synced');
       }
     });
@@ -68,31 +87,38 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
     };
   }, [user]);
 
-  // Guardado persistente con debounce (localStorage siempre + Firestore si está autenticado)
+  // Guardado persistente con debounce (localStorage siempre + Firestore solo tras hidratar desde la nube)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
+    // Siempre guardar copia en localStorage
+    saveState(state);
+
     if (isRemoteUpdate.current) {
       isRemoteUpdate.current = false;
-      saveState(state);
+      return;
+    }
+
+    // No sobrescribir la nube si aún no se ha descargado el estado inicial del usuario
+    if (!user || !isCloudHydrated.current) {
       return;
     }
 
     const timer = setTimeout(() => {
-      saveState(state);
-      if (user) {
-        setSyncStatus('syncing');
-        saveDashboardToCloud(user.uid, state).then((success) => {
-          setSyncStatus(success ? 'synced' : 'error');
-        });
-      }
+      if (!user || !isCloudHydrated.current) return;
+      const currentSignature = `${JSON.stringify(state.tasks)}|${JSON.stringify(state.columns)}`;
+      lastSyncedJson.current = currentSignature;
+      setSyncStatus('syncing');
+      saveDashboardToCloud(user.uid, state).then((success) => {
+        setSyncStatus(success ? 'synced' : 'error');
+      });
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [state, user]);
+  }, [state]);
 
   // Sincronización multi-pestaña mediante el evento 'storage' del navegador
   useEffect(() => {

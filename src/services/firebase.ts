@@ -98,8 +98,9 @@ export async function saveDashboardToCloud(
   if (!db) return false;
   try {
     const userDocRef = doc(db, 'users', userId, 'dashboard', 'state');
+    const cleanState = JSON.parse(JSON.stringify(state));
     await setDoc(userDocRef, {
-      ...state,
+      ...cleanState,
       updatedAt: new Date().toISOString(),
     });
     return true;
