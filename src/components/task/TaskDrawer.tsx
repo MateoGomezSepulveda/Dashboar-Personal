@@ -23,7 +23,7 @@ import {
 import { Task, Horizon, Priority, Tag, Subtask, KanbanColumn } from '../../types/domain';
 import { useTasks } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
-import { getGoogleCalendarToken } from '../../services/firebase';
+import { getGoogleCalendarToken, authorizeGoogleCalendar } from '../../services/firebase';
 import {
   syncTaskToGoogleCalendar,
   deleteGoogleCalendarEvent,
@@ -44,6 +44,7 @@ export interface TaskDrawerProps {
   onSave?: (taskData: Partial<Task> & { title: string; columnId: string }) => void;
   onDelete?: (taskId: string) => void;
   onDuplicate?: (taskId: string) => void;
+  onCalendarSyncResult?: (result: { type: 'success' | 'error'; message: string }) => void;
 }
 
 // Simple, robust client-side Markdown parser producing safe React nodes
@@ -232,6 +233,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   onSave,
   onDelete,
   onDuplicate,
+  onCalendarSyncResult,
 }) => {
   const { state, addTask, updateTask, deleteTask, duplicateTask, dispatch } = useTasks();
   const { user } = useAuth();
@@ -335,7 +337,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmedTitle = title.trim();
 
@@ -378,29 +380,60 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
 
     if (onSave) {
       onSave(taskPayload);
-    } else {
-      if (isEditing && task) {
-        updateTask(task.id, taskPayload);
-      } else {
-        addTask(taskPayload);
-      }
+      onClose();
+      return;
+    }
 
-      // Sincronizar automáticamente en segundo plano con Google Calendar si tiene fecha/hora y token activo
-      const gcalToken = getGoogleCalendarToken();
-      if (user && gcalToken && syncWithGCal && (resolvedDueDate || dueTime)) {
-        syncTaskToGoogleCalendar(taskPayload, gcalToken)
-          .then((eventId) => {
-            if (eventId) {
-              updateTask(taskId, { googleCalendarEventId: eventId });
-            }
-          })
-          .catch((err) => {
-            console.warn('No se pudo sincronizar automáticamente con Google Calendar:', err);
-          });
-      }
+    if (isEditing && task) {
+      updateTask(task.id, taskPayload);
+    } else {
+      addTask(taskPayload);
     }
 
     onClose();
+
+    // Sincronizar con Google Calendar si la casilla está activa y tiene fecha u hora
+    if (user && syncWithGCal && (resolvedDueDate || dueTime)) {
+      try {
+        let gcalToken = getGoogleCalendarToken();
+        if (!gcalToken) {
+          gcalToken = await authorizeGoogleCalendar(true);
+        }
+        if (gcalToken) {
+          try {
+            const eventId = await syncTaskToGoogleCalendar(taskPayload, gcalToken);
+            if (eventId) {
+              updateTask(taskId, { googleCalendarEventId: eventId });
+              onCalendarSyncResult?.({
+                type: 'success',
+                message: `✅ "${trimmedTitle}" se agendó en tu Google Calendar (recibirás la alerta en tu celular en segundo plano).`,
+              });
+            }
+          } catch (firstErr: any) {
+            // Si el token había expirado o le faltaba el permiso de Calendar, solicitar consentimiento explícito y reintentar
+            const refreshedToken = await authorizeGoogleCalendar(true);
+            if (refreshedToken) {
+              const eventId = await syncTaskToGoogleCalendar(taskPayload, refreshedToken);
+              if (eventId) {
+                updateTask(taskId, { googleCalendarEventId: eventId });
+                onCalendarSyncResult?.({
+                  type: 'success',
+                  message: `✅ "${trimmedTitle}" se agendó en tu Google Calendar.`,
+                });
+              }
+            } else {
+              throw firstErr;
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn('Error al sincronizar con Google Calendar:', err);
+        onCalendarSyncResult?.({
+          type: 'error',
+          message: `La tarea se guardó, pero Google Calendar indicó: ${err?.message || 'Marca la casilla de permisos de Google Calendar al iniciar sesión.'}`,
+        });
+      }
+    }
   };
 
   const handleDelete = () => {

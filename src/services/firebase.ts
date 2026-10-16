@@ -105,9 +105,15 @@ export async function loginWithGoogle(): Promise<User | null> {
 /**
  * Solicita o renueva el token de acceso a Google Calendar mediante popup
  */
-export async function authorizeGoogleCalendar(): Promise<string | null> {
+export async function authorizeGoogleCalendar(forceConsent: boolean = false): Promise<string | null> {
   if (!auth) return null;
-  const result = await signInWithPopup(auth, googleProvider);
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');
+  provider.setCustomParameters({
+    prompt: forceConsent ? 'consent' : 'select_account',
+    include_granted_scopes: 'true',
+  });
+  const result = await signInWithPopup(auth, provider);
   const credential = GoogleAuthProvider.credentialFromResult(result);
   const token = credential?.accessToken || null;
   setGoogleCalendarToken(token);

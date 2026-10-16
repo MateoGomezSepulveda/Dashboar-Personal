@@ -73,6 +73,7 @@ function buildCalendarEventResource(task: Partial<Task> & { title: string }) {
         useDefault: false,
         overrides: [
           { method: 'popup', minutes: 10 },
+          { method: 'popup', minutes: 1 },
           { method: 'popup', minutes: 0 },
         ],
       },
@@ -89,6 +90,9 @@ function buildCalendarEventResource(task: Partial<Task> & { title: string }) {
     },
     end: {
       date: nextDay,
+    },
+    reminders: {
+      useDefault: true,
     },
   };
 }

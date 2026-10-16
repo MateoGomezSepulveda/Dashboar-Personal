@@ -322,16 +322,8 @@ function MainDashboard() {
     setIsSyncingCalendar(true);
     setCalendarNotice(null);
 
-    try {
-      let token = getGoogleCalendarToken();
-      if (!token) {
-        token = await authorizeGoogleCalendar();
-      }
-      if (!token) {
-        throw new Error('No se otorgó permiso de acceso a Google Calendar.');
-      }
-
-      // 1. Exportar tareas programadas del Dashboard hacia Google Calendar
+    const runSyncWithToken = async (activeToken: string) => {
+      // 1. Exportar o actualizar tareas programadas del Dashboard hacia Google Calendar
       let exportedCount = 0;
       const scheduledTasks = tasks.filter((t) => {
         const col = columns.find((c) => c.id === t.columnId);
@@ -340,17 +332,17 @@ function MainDashboard() {
       });
 
       for (const task of scheduledTasks) {
-        if (!task.googleCalendarEventId) {
-          const eventId = await syncTaskToGoogleCalendar(task, token);
-          if (eventId) {
-            updateTask(task.id, { googleCalendarEventId: eventId });
-            exportedCount++;
-          }
+        const eventId = await syncTaskToGoogleCalendar(task, activeToken);
+        if (eventId && eventId !== task.googleCalendarEventId) {
+          updateTask(task.id, { googleCalendarEventId: eventId });
+          exportedCount++;
+        } else if (eventId) {
+          exportedCount++;
         }
       }
 
       // 2. Importar eventos próximos desde Google Calendar hacia el Dashboard
-      const remoteEvents = await fetchUpcomingGoogleCalendarEvents(token);
+      const remoteEvents = await fetchUpcomingGoogleCalendarEvents(activeToken);
       const todayStr = getTodayString();
       let importedCount = 0;
 
@@ -358,7 +350,9 @@ function MainDashboard() {
         const alreadyExists = tasks.some(
           (t) =>
             t.googleCalendarEventId === ev.id ||
-            (ev.summary && t.title.replace(/^📌\s*/, '').trim().toLowerCase() === ev.summary.replace(/^📌\s*/, '').trim().toLowerCase())
+            (ev.summary &&
+              t.title.replace(/^📌\s*/, '').trim().toLowerCase() ===
+                ev.summary.replace(/^📌\s*/, '').trim().toLowerCase())
         );
 
         if (!alreadyExists && ev.summary) {
@@ -380,18 +374,42 @@ function MainDashboard() {
         }
       }
 
+      return { exportedCount, importedCount };
+    };
+
+    try {
+      let token = getGoogleCalendarToken();
+      if (!token) {
+        token = await authorizeGoogleCalendar(true);
+      }
+      if (!token) {
+        throw new Error('No se otorgó permiso de acceso a Google Calendar.');
+      }
+
+      let counts: { exportedCount: number; importedCount: number };
+      try {
+        counts = await runSyncWithToken(token);
+      } catch {
+        // Si el token expiró o no tenía el permiso de Calendar marcado, pedir consentimiento explícito
+        const freshToken = await authorizeGoogleCalendar(true);
+        if (!freshToken) {
+          throw new Error('Debes aceptar el permiso de Google Calendar en la ventana emergente.');
+        }
+        counts = await runSyncWithToken(freshToken);
+      }
+
       setCalendarNotice({
         type: 'success',
-        message: `Google Calendar sincronizado: ${exportedCount} tarea(s) enviada(s) y ${importedCount} evento(s) nuevo(s) importado(s).`,
+        message: `✅ Google Calendar sincronizado: ${counts.exportedCount} tarea(s) en tu calendario y ${counts.importedCount} evento(s) nuevo(s) importado(s).`,
       });
-      setTimeout(() => setCalendarNotice(null), 6000);
+      setTimeout(() => setCalendarNotice(null), 7000);
     } catch (err: any) {
       console.error('Error sincronizando con Google Calendar:', err);
       setCalendarNotice({
         type: 'error',
         message:
           err?.message ||
-          'No se pudo sincronizar con Google Calendar. Verifica que la API de Google Calendar esté habilitada en tu proyecto.',
+          'No se pudo sincronizar con Google Calendar. Asegúrate de marcar la casilla de permisos de Google Calendar al iniciar sesión.',
       });
     } finally {
       setIsSyncingCalendar(false);
@@ -400,6 +418,44 @@ function MainDashboard() {
 
   // Reloj vigilante de tareas programadas con hora (revisa cada 5 segundos)
   useEffect(() => {
+    const triggerNativeNotification = async (task: Task) => {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const title = '⏰ ¡Es hora de cumplir tu tarea!';
+      const body = `${task.title} (${task.dueTime})`;
+
+      // 1. En celulares (Android Chrome / iOS PWA), usar Service Worker obligatoriamente
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg && 'showNotification' in reg) {
+            await reg.showNotification(title, {
+              body,
+              icon: '/icon.svg',
+              badge: '/icon.svg',
+              tag: `task-${task.id}-${task.dueTime}`,
+              requireInteraction: true,
+              vibrate: [300, 100, 300, 100, 500],
+            } as NotificationOptions);
+            return;
+          }
+        } catch {
+          // Si falla Service Worker, continuar con fallback de escritorio
+        }
+      }
+
+      // 2. Fallback para navegadores de escritorio
+      try {
+        new Notification(title, {
+          body,
+          icon: '/icon.svg',
+        });
+      } catch {
+        // Fallback cubierto por el banner visual en pantalla
+      }
+    };
+
     const checkScheduledTasks = () => {
       const now = new Date();
       const todayStr = getTodayString(now);
@@ -433,17 +489,8 @@ function MainDashboard() {
               return [task, ...prev];
             });
 
-            // 3. Disparar notificación nativa del navegador / sistema operativo si está permitida
-            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-              try {
-                new Notification('⏰ ¡Es hora de cumplir tu tarea!', {
-                  body: `${task.title} (${task.dueTime})`,
-                  icon: '/icon.svg',
-                });
-              } catch {
-                // Fallback cubierto por el banner visual en pantalla
-              }
-            }
+            // 3. Disparar notificación nativa (Service Worker en celular / Notification API en PC)
+            triggerNativeNotification(task);
           }
         }
       });
@@ -626,6 +673,12 @@ function MainDashboard() {
         task={selectedTask}
         initialColumnId={drawerInitialColumn}
         initialHorizon={drawerInitialHorizon}
+        onCalendarSyncResult={(res) => {
+          setCalendarNotice(res);
+          if (res.type === 'success') {
+            setTimeout(() => setCalendarNotice(null), 6000);
+          }
+        }}
       />
     </div>
   );
