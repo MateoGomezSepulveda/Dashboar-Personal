@@ -81,45 +81,44 @@ export const INITIAL_TAGS: Tag[] = [
 
 export const INITIAL_TASKS: Task[] = [
   // ==========================================================================
-  // HORIZONTE MENSUAL (Macro Metas Estratégicas)
+  // HORIZONTE MENSUAL (Datos de Ejemplo: Cómo usar el Horizonte Mensual)
   // ==========================================================================
   {
     id: 'task-monthly-1',
-    title: 'Lanzar Dashboard Personal con Productividad Tri-Horizonte',
-    description: `## Objetivo Macro del Mes
-Desplegar una solución integral de gestión personal que conecte la visión de largo plazo con la ejecución diaria.
+    title: '👋 Bienvenido a tu Dashboard Personal: Guía Rápida de Uso',
+    description: `## ¿Cómo funciona esta aplicación?
+Este tablero está diseñado con **datos de ejemplo** para enseñarte cómo organizar tu productividad en 4 vistas principales:
 
-### Criterios de Éxito Clave:
-- [x] Arquitectura React 18 + TypeScript limpia y desacoplada.
-- [ ] Tablero Kanban con drag-and-drop interactivo a 60 FPS.
-- [ ] Persistencia 100% local en el navegador con respaldos JSON.
-- [ ] Cobertura de pruebas unitarias superior al 85%.
+1. **Panel Principal**: Tu centro de mando con métricas en tiempo real (*Progreso Diario*, *Compromisos Semanales*, *Tareas Vencidas* y *Distribución de Prioridades*).
+2. **Mensual (30 días)**: Donde defines tus grandes metas u objetivos estratégicos del mes.
+3. **Semanal (7 días)**: Donde divides tus metas del mes en compromisos concretos para la semana.
+4. **Diario (Hoy)**: Tu tablero de enfoque para ejecutar las tareas del día.
 
-> *"La productividad no es hacer más cosas, sino hacer las cosas correctas en el horizonte temporal adecuado."*`,
+> 💡 *Inicia sesión con el botón **"Conectar"** arriba a la derecha para cargar tus tareas guardadas en la nube. Al cerrar sesión (o tras 2 minutos de inactividad), tus datos privados se limpian de la pantalla y vuelven estos ejemplos.*`,
     horizon: 'monthly',
     columnId: 'in-progress',
     priority: 'high',
     dueDate: '2026-10-31',
     dueTime: null,
-    tags: ['tag-arquitectura', 'tag-frontend'],
+    tags: ['tag-productividad', 'tag-aprendizaje'],
     subtasks: [
       {
         id: 'st-m1-1',
-        title: 'Diseñar arquitectura de datos e interfaces de dominio',
+        title: 'Revisar el Panel Principal para ver las 4 tarjetas de resumen',
         completed: true,
         order: 0,
         createdAt: '2026-10-10T10:00:00.000Z',
       },
       {
         id: 'st-m1-2',
-        title: 'Implementar tablero Kanban con soporte fluido de arrastre',
+        title: 'Explorar las pestañas Mensual, Semanal y Diario en la barra superior',
         completed: true,
         order: 1,
         createdAt: '2026-10-10T10:00:00.000Z',
       },
       {
         id: 'st-m1-3',
-        title: 'Verificar suite completa de pruebas unitarias y empaquetado',
+        title: 'Conectar tu cuenta de Google para sincronizar tus propias tareas',
         completed: false,
         order: 2,
         createdAt: '2026-10-10T10:00:00.000Z',
@@ -133,31 +132,30 @@ Desplegar una solución integral de gestión personal que conecte la visión de 
   },
   {
     id: 'task-monthly-2',
-    title: 'Dominar Patrones Avanzados de TypeScript y Rendimiento Frontend',
-    description: `## Plan de Crecimiento Técnico
-Profundizar en técnicas modernas de desarrollo con React y TypeScript estricto.
+    title: '🎯 Ejemplo de Meta Mensual: Define tus objetivos a 30 días',
+    description: `## ¿Para qué sirve el Horizonte Mensual?
+Aquí colocas los proyectos o metas grandes que quieres lograr durante el mes.
 
-### Temas de Estudio:
-1. Tipos condicionales y uniones discriminadas en reducers.
-2. Optimización de renderizado con React Context desacoplado.
-3. Principios de accesibilidad WCAG AAA y navegación por teclado.`,
+### Consejos de uso:
+1. Usa el botón **"Tablero Kanban"** arriba a la derecha si prefieres ver tus metas en columnas.
+2. Usa el botón **"Jerarquía y Rollup"** para ver cómo avanzan las tareas semanales conectadas a tu meta.`,
     horizon: 'monthly',
     columnId: 'todo',
     priority: 'medium',
     dueDate: '2026-10-30',
     dueTime: null,
-    tags: ['tag-aprendizaje'],
+    tags: ['tag-productividad'],
     subtasks: [
       {
         id: 'st-m2-1',
-        title: 'Completar lecturas sobre máquinas de estado y patrones inmutables',
+        title: 'Hacer clic en una tarjeta para abrir el panel de detalles',
         completed: false,
         order: 0,
         createdAt: '2026-10-05T09:00:00.000Z',
       },
       {
         id: 'st-m2-2',
-        title: 'Implementar pruebas automatizadas con Vitest y Testing Library',
+        title: 'Agregar subtareas y etiquetas personalizadas de colores',
         completed: false,
         order: 1,
         createdAt: '2026-10-05T09:00:00.000Z',
@@ -171,42 +169,40 @@ Profundizar en técnicas modernas de desarrollo con React y TypeScript estricto.
   },
 
   // ==========================================================================
-  // HORIZONTE SEMANAL (Compromisos y Entregables de la Semana)
+  // HORIZONTE SEMANAL (Datos de Ejemplo: Cómo usar el Horizonte Semanal)
   // ==========================================================================
   {
     id: 'task-weekly-1',
-    title: 'Construir Tablero Kanban con Drag-and-Drop Fluido',
-    description: `### Compromiso de la Semana
-Construir la experiencia interactiva del Kanban con feedback visual optimizado, transiciones suaves y soporte de accesibilidad.
+    title: '📅 Ejemplo Semanal: Divide tus metas en entregables de 7 días',
+    description: `### ¿Cómo usar el Horizonte Semanal?
+En esta pestaña organizas los compromisos que vas a cumplir durante la semana actual.
 
-#### Tareas Incluidas:
-- Columnas con límite WIP configurable.
-- Reordenamiento vertical dentro de la columna.
-- Transferencia entre columnas con actualización automática de timestamps.`,
+- Cada compromiso semanal suma al porcentaje de **Compromisos Semanales** en tu **Panel Principal**.
+- Puedes moverlos entre *Por hacer*, *En progreso* y *Completado*.`,
     horizon: 'weekly',
     columnId: 'in-progress',
     priority: 'high',
     dueDate: '2026-10-18',
     dueTime: null,
-    tags: ['tag-frontend', 'tag-diseno'],
+    tags: ['tag-productividad', 'tag-diseno'],
     subtasks: [
       {
         id: 'st-w1-1',
-        title: 'Configurar contenedores Droppable y tarjetas Draggable',
+        title: 'Definir qué entregables vas a completar esta semana',
         completed: true,
         order: 0,
         createdAt: '2026-10-12T08:00:00.000Z',
       },
       {
         id: 'st-w1-2',
-        title: 'Aplicar estilos visuales al arrastrar (elevación y sombra)',
+        title: 'Asignar prioridad Alta, Media o Baja a cada compromiso',
         completed: false,
         order: 1,
         createdAt: '2026-10-12T08:00:00.000Z',
       },
       {
         id: 'st-w1-3',
-        title: 'Verificar soporte táctil en dispositivos móviles',
+        title: 'Mover a "Completado" al terminar para subir tu progreso semanal',
         completed: false,
         order: 2,
         createdAt: '2026-10-12T08:00:00.000Z',
@@ -220,13 +216,12 @@ Construir la experiencia interactiva del Kanban con feedback visual optimizado, 
   },
   {
     id: 'task-weekly-2',
-    title: 'Implementar Persistencia Local y Copias de Seguridad JSON',
-    description: `### Compromiso de la Semana
-Asegurar persistencia transparente y resiliente en el almacenamiento local del navegador.
-
-- Guardado automático con protección contra errores de cuota.
-- Descarga de archivo \`personal-dashboard-backup-YYYY-MM-DD.json\`.
-- Validación preventiva al importar copias de seguridad.`,
+    title: '🔒 Seguridad y Cierre Automático por Inactividad (2 min)',
+    description: `### Protección de tu Cuenta
+Cuando inicias sesión con Google:
+- Se cargan automáticamente tus tareas guardadas en la nube (PC y celular).
+- Si pasas **2 minutos sin mover el mouse ni tocar la pantalla**, la sesión se cierra sola por seguridad.
+- Al cerrar sesión, tus tareas privadas se borran de este dispositivo y regresan estos datos de ejemplo.`,
     horizon: 'weekly',
     columnId: 'todo',
     priority: 'medium',
@@ -236,14 +231,14 @@ Asegurar persistencia transparente y resiliente en el almacenamiento local del n
     subtasks: [
       {
         id: 'st-w2-1',
-        title: 'Crear servicio de serialización con validación de versión',
+        title: 'Iniciar sesión con el botón "Conectar" para cargar tus datos reales',
         completed: false,
         order: 0,
         createdAt: '2026-10-12T08:30:00.000Z',
       },
       {
         id: 'st-w2-2',
-        title: 'Diseñar diálogo accesible para importar y exportar datos',
+        title: 'Cerrar sesión para comprobar que vuelven los datos de ejemplo',
         completed: false,
         order: 1,
         createdAt: '2026-10-12T08:30:00.000Z',
@@ -257,18 +252,15 @@ Asegurar persistencia transparente y resiliente en el almacenamiento local del n
   },
 
   // ==========================================================================
-  // HORIZONTE DIARIO (Foco Táctico de Hoy)
+  // HORIZONTE DIARIO (Datos de Ejemplo: Cómo usar el Tablero Diario)
   // ==========================================================================
   {
     id: 'task-daily-1',
-    title: 'Diseñar Panel Lateral de Edición de Tareas con Markdown',
-    description: `### Foco Crítico de Hoy
-Desarrollar el panel lateral deslizante (Drawer) para edición detallada de tareas.
+    title: '✋ ¡Pruébalo! Mantén presionada esta tarjeta y arrástrala',
+    description: `### Cómo usar el Tablero Kanban
+Puedes arrastrar cualquier tarjeta tomándola desde **cualquier parte** y soltarla en otra columna (*Por hacer*, *En progreso* o *Completado*).
 
-#### Especificaciones:
-- Edición rápida de título y selector de prioridad.
-- Pestañas de edición y vista previa de Markdown sanitizado.
-- Lista dinámica para agregar y marcar subtareas con cálculo de progreso.`,
+- Si haces un **clic rápido** sobre la tarjeta, se abre este panel lateral para editar su título, fecha límite, descripción en Markdown, subtareas y etiquetas.`,
     horizon: 'daily',
     columnId: 'in-progress',
     priority: 'high',
@@ -278,21 +270,21 @@ Desarrollar el panel lateral deslizante (Drawer) para edición detallada de tare
     subtasks: [
       {
         id: 'st-d1-1',
-        title: 'Maquetar campos accesibles con Tailwind y Lucide icons',
+        title: 'Arrastrar esta tarjeta a la columna "Completado"',
         completed: true,
         order: 0,
         createdAt: '2026-10-12T12:00:00.000Z',
       },
       {
         id: 'st-d1-2',
-        title: 'Integrar editor de subtareas con teclado (Enter)',
+        title: 'Hacer clic en la tarjeta para ver sus detalles y checklist',
         completed: false,
         order: 1,
         createdAt: '2026-10-12T12:00:00.000Z',
       },
       {
         id: 'st-d1-3',
-        title: 'Conectar selector de horizonte superior (parentTaskId)',
+        title: 'Mirar cómo cambia el porcentaje en el Panel Principal',
         completed: false,
         order: 2,
         createdAt: '2026-10-12T12:00:00.000Z',
@@ -306,26 +298,26 @@ Desarrollar el panel lateral deslizante (Drawer) para edición detallada de tare
   },
   {
     id: 'task-daily-2',
-    title: 'Configurar Paleta Slate y Modo Oscuro con Contraste AAA',
-    description: `### Logro Completado
-Se configuraron las clases de Tailwind y el tema dual nativo para garantizar contraste verificado WCAG AAA y ergonomía visual sin fatiga.`,
+    title: '✅ Ejemplo de Tarea Completada: Suma a tu Progreso Diario',
+    description: `### Tareas Finalizadas
+Todas las tareas que coloques en la columna **Completado** se marcan como terminadas y actualizan automáticamente la barra de **Progreso Diario** en tu Panel Principal.`,
     horizon: 'daily',
     columnId: 'done',
     priority: 'medium',
     dueDate: '2026-10-12',
     dueTime: null,
-    tags: ['tag-frontend', 'tag-diseno'],
+    tags: ['tag-productividad'],
     subtasks: [
       {
         id: 'st-d2-1',
-        title: 'Definir tokens de colores Slate/Zinc y acento Royal Blue #2563EB',
+        title: 'Crear la tarea en la columna Por hacer',
         completed: true,
         order: 0,
         createdAt: '2026-10-12T09:30:00.000Z',
       },
       {
         id: 'st-d2-2',
-        title: 'Implementar interruptor de tema con clase .dark en <html>',
+        title: 'Moverla a Completado al finalizar',
         completed: true,
         order: 1,
         createdAt: '2026-10-12T09:30:00.000Z',
@@ -339,29 +331,26 @@ Se configuraron las clases de Tailwind y el tema dual nativo para garantizar con
   },
   {
     id: 'task-daily-3',
-    title: 'Escribir Pruebas Unitarias para el Motor de Métricas y Reducer',
-    description: `### Tarea Pendiente de Hoy
-Validar que las operaciones del reducer y las métricas calculen con precisión matemática:
-- Porcentaje de finalización del día y de la semana.
-- Detección precisa de tareas vencidas.
-- Preservación de orden contiguo en movimientos entre columnas.`,
+    title: '➕ Crea una tarea nueva con el botón "+ Nueva Tarea"',
+    description: `### Creación Rápida
+Usa el botón azul **"+ Nueva"** en la barra superior (o el botón centrado en la parte inferior si estás en celular) para crear tareas en segundos.`,
     horizon: 'daily',
     columnId: 'todo',
     priority: 'low',
     dueDate: '2026-10-13',
     dueTime: null,
-    tags: ['tag-arquitectura', 'tag-productividad'],
+    tags: ['tag-aprendizaje'],
     subtasks: [
       {
         id: 'st-d3-1',
-        title: 'Prueba para cálculo de tasa de completado evitando NaN',
+        title: 'Elegir el horizonte (Mensual, Semanal o Diario)',
         completed: false,
         order: 0,
         createdAt: '2026-10-12T10:00:00.000Z',
       },
       {
         id: 'st-d3-2',
-        title: 'Prueba para reordenamiento intra-columna y cambio de columna',
+        title: 'Seleccionar prioridad y fecha de vencimiento',
         completed: false,
         order: 1,
         createdAt: '2026-10-12T10:00:00.000Z',
@@ -375,9 +364,9 @@ Validar que las operaciones del reducer y las métricas calculen con precisión 
   },
   {
     id: 'task-daily-4',
-    title: 'Revisar Ergonomía y Navegación Táctil en Móvil',
-    description: `### Tarea de Usabilidad Rápida
-Verificar que los elementos interactivos cumplan con el área táctil mínima de 44x44px y que el carrusel horizontal Kanban funcione con snap suave en pantallas de 375px.`,
+    title: '🌙 Alterna entre Modo Oscuro y Modo Claro arriba a la derecha',
+    description: `### Personalización Visual
+Haz clic en el ícono del Sol/Luna en la esquina superior derecha para cambiar el tema visual en cualquier momento, o usa el ícono de Base de Datos para exportar/importar copias de seguridad en formato JSON.`,
     horizon: 'daily',
     columnId: 'todo',
     priority: 'low',

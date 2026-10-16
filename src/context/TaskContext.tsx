@@ -22,29 +22,43 @@ export interface TaskProviderProps {
 }
 
 export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialState }) => {
+  const { user, loading, isConfigured, setSyncStatus } = useAuth();
+
   const [state, dispatch] = useReducer(
     taskReducer,
-    initialState || (typeof window !== 'undefined' ? loadPersistedState() : INITIAL_APP_STATE)
+    initialState || (typeof window !== 'undefined' && !isConfigured ? loadPersistedState() : INITIAL_APP_STATE)
   );
 
-  const { user, setSyncStatus } = useAuth();
   const isInitialMount = useRef(true);
   const isRemoteUpdate = useRef(false);
   const isCloudHydrated = useRef(false);
   const lastSyncedJson = useRef<string>('');
+  const wasAuthenticated = useRef(false);
 
   // Sincronización en tiempo real con Firestore cuando el usuario está autenticado
+  // y limpieza a datos de ejemplo al abrir sin sesión o al cerrar sesión
   useEffect(() => {
     if (!user) {
       isCloudHydrated.current = false;
+      lastSyncedJson.current = '';
+
+      // Si estaba autenticado y cerró sesión (o al iniciar sin sesión activa),
+      // eliminar los datos de la cuenta y restaurar los datos de ejemplo iniciales
+      if (!initialState && (wasAuthenticated.current || (!loading && isConfigured))) {
+        wasAuthenticated.current = false;
+        isRemoteUpdate.current = true;
+        saveState(INITIAL_APP_STATE);
+        dispatch({ type: 'RESET_STATE', payload: { seedState: INITIAL_APP_STATE } });
+      }
       return;
     }
 
+    wasAuthenticated.current = true;
     setSyncStatus('syncing');
     let isSubscribed = true;
     isCloudHydrated.current = false;
 
-    // 1. Primero descargar el estado de la nube antes de permitir cualquier escritura local -> nube
+    // 1. Primero descargar el último estado guardado de la cuenta en la nube
     loadDashboardFromCloud(user.uid).then((cloudState) => {
       if (!isSubscribed) return;
       if (cloudState && isValidAppState(cloudState)) {
@@ -55,7 +69,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
         isCloudHydrated.current = true;
         setSyncStatus('synced');
       } else {
-        // Solo si el usuario no tiene ningún documento en la nube aún, subimos el estado actual
+        // Si es una cuenta nueva sin datos previos en la nube, guardar el estado base
         isCloudHydrated.current = true;
         saveDashboardToCloud(user.uid, state).then((ok) => {
           if (isSubscribed) setSyncStatus(ok ? 'synced' : 'error');
@@ -85,17 +99,19 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
       isSubscribed = false;
       unsubscribe();
     };
-  }, [user]);
+  }, [user, loading, isConfigured, initialState]);
 
-  // Guardado persistente con debounce (localStorage siempre + Firestore solo tras hidratar desde la nube)
+  // Guardado persistente con debounce (localStorage + Firestore solo tras hidratar desde la nube)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    // Siempre guardar copia en localStorage
-    saveState(state);
+    // Guardar en localStorage si no requiere sesión o si el usuario está autenticado
+    if (!isConfigured || user) {
+      saveState(state);
+    }
 
     if (isRemoteUpdate.current) {
       isRemoteUpdate.current = false;
