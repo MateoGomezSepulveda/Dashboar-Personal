@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { TaskProvider, useTasks } from './context/TaskContext';
 import { DataManagementModal } from './components/settings/DataManagementModal';
 import { HorizonNav } from './components/layout/HorizonNav';
-import { QuickStats } from './components/layout/QuickStats';
 import { HorizonView } from './components/horizons/HorizonView';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { TaskDrawer } from './components/task/TaskDrawer';
@@ -261,8 +260,6 @@ function MainDashboard() {
           <HorizonNav />
         </div>
 
-        <QuickStats />
-
         <HorizonView
           onAddTask={handleOpenNewTask}
           kanbanBoardNode={
@@ -278,15 +275,16 @@ function MainDashboard() {
         />
       </main>
 
-      {/* Mobile Floating Action Button (FAB) for adding tasks */}
+      {/* Mobile Floating Action Button (FAB) centered to avoid bottom-right overlays */}
       <button
         type="button"
         onClick={() => handleOpenNewTask()}
         aria-label="Crear nueva tarea"
         title="Crear nueva tarea"
-        className="md:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xl shadow-blue-600/35 flex items-center justify-center transition-all cursor-pointer"
+        className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-5 h-12 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xl shadow-blue-600/35 flex items-center justify-center gap-2 text-xs font-semibold transition-all cursor-pointer"
       >
-        <Plus className="w-6 h-6 stroke-[2.5]" />
+        <Plus className="w-5 h-5 stroke-[2.5]" />
+        <span>Nueva Tarea</span>
       </button>
 
       {/* Persistent Modals & Drawers */}

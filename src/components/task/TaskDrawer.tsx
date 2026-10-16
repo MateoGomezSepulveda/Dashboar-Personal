@@ -702,12 +702,12 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
           />
         </form>
 
-        {/* Drawer Footer Actions */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md flex items-center justify-between gap-3">
+        {/* Drawer Footer Actions (centered to avoid bottom-right overlays) */}
+        <div className="px-6 pt-4 pb-6 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md flex items-center justify-center gap-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             Cancelar
           </button>
@@ -715,7 +715,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
           <button
             type="button"
             onClick={() => handleSave()}
-            className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
+            className="px-6 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <Check className="w-4 h-4 stroke-[2.5]" />
             <span>{isEditing ? 'Guardar Cambios' : 'Crear Tarea'}</span>

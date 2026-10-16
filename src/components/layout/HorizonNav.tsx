@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, CalendarRange, CalendarDays, SunMedium } from 'lucide-react';
+import { LayoutDashboard, CalendarRange, CalendarDays, SunMedium } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { Horizon } from '../../types/domain';
 import { cn } from '../../utils/cn';
@@ -18,9 +18,9 @@ interface HorizonTabItem {
 const HORIZON_TABS: HorizonTabItem[] = [
   {
     id: 'all',
-    label: 'Todos',
-    icon: Layers,
-    description: 'Vista holística de todas las tareas activas',
+    label: 'Principal',
+    icon: LayoutDashboard,
+    description: 'Panel principal con métricas, progreso y distribución de prioridades',
   },
   {
     id: 'monthly',

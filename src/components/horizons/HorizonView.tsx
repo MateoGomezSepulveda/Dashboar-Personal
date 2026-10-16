@@ -3,12 +3,13 @@ import {
   CalendarRange,
   CalendarDays,
   SunMedium,
-  Layers,
+  LayoutDashboard,
   KanbanSquare,
   ListTree,
 } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { Horizon } from '../../types/domain';
+import { QuickStats } from '../layout/QuickStats';
 import { MonthlyGoals } from './MonthlyGoals';
 import { WeeklyCommitments } from './WeeklyCommitments';
 import { cn } from '../../utils/cn';
@@ -30,11 +31,25 @@ export const HorizonView: React.FC<HorizonViewProps> = ({
   // View presentation mode: 'structured' (dedicated horizon hierarchy) vs 'kanban' (board)
   const [viewMode, setViewMode] = useState<'structured' | 'kanban'>('structured');
 
-  // When 'all' is selected, default to the Kanban board directly
+  // When 'all' (Panel Principal) is selected, display the productivity metrics panel exclusively
   if (selectedHorizon === 'all') {
     return (
       <div className={cn('space-y-6', className)}>
-        {kanbanBoardNode}
+        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60">
+            <LayoutDashboard className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Panel Principal: Resumen de Productividad
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Progreso diario, compromisos semanales, tareas vencidas y distribución de prioridades
+            </p>
+          </div>
+        </div>
+
+        <QuickStats className="mb-0" />
       </div>
     );
   }
