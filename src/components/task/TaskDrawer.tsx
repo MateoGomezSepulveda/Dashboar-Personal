@@ -32,6 +32,7 @@ import {
 } from '../../services/googleCalendarService';
 import { TagSelector } from './TagSelector';
 import { SubtaskList } from './SubtaskList';
+import { NotionDescriptionEditor } from './NotionDescriptionEditor';
 import { cn } from '../../utils/cn';
 import { getTodayString, addDays } from '../../utils/dateUtils';
 import { HORIZON_CONFIGS, PRIORITY_CONFIGS } from '../../constants/theme';
@@ -48,7 +49,7 @@ export interface TaskDrawerProps {
   onCalendarSyncResult?: (result: { type: 'success' | 'error'; message: string }) => void;
 }
 
-// Simple, robust client-side Markdown parser producing safe React nodes
+// Enhanced Notion-style Markdown parser supporting GFM Tables, Large Headings, Callouts, and Checklists
 function renderMarkdown(content: string): React.ReactNode {
   if (!content || !content.trim()) {
     return <span className="italic text-slate-400">Sin descripción...</span>;
@@ -60,6 +61,19 @@ function renderMarkdown(content: string): React.ReactNode {
   let codeBlockBuffer: string[] = [];
   let inList = false;
   let listBuffer: string[] = [];
+
+  const parsePipeLine = (line: string): string[] => {
+    const trimmed = line.trim();
+    const inner = trimmed.startsWith('|') && trimmed.endsWith('|')
+      ? trimmed.slice(1, -1)
+      : trimmed;
+    return inner.split('|').map((c) => c.trim());
+  };
+
+  const isTableSeparator = (line: string): boolean => {
+    const t = line.trim();
+    return t.startsWith('|') && t.endsWith('|') && /^\|[\s\-:|]+\|$/.test(t);
+  };
 
   const flushList = () => {
     if (inList && listBuffer.length > 0) {
@@ -94,8 +108,9 @@ function renderMarkdown(content: string): React.ReactNode {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const trimmed = line.trim();
 
-    if (line.trim().startsWith('```')) {
+    if (trimmed.startsWith('```')) {
       if (inCodeBlock) {
         flushCodeBlock();
       } else {
@@ -110,10 +125,71 @@ function renderMarkdown(content: string): React.ReactNode {
       continue;
     }
 
+    // GFM Table detection
+    if (
+      trimmed.startsWith('|') &&
+      trimmed.endsWith('|') &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      flushList();
+      const headers = parsePipeLine(trimmed);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        rows.push(parsePipeLine(lines[i].trim()));
+        i++;
+      }
+      i--; // step back since for-loop increments
+
+      elements.push(
+        <div
+          key={`tbl-${i}`}
+          className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs"
+        >
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-100/90 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                {headers.map((h, hIdx) => (
+                  <th
+                    key={hIdx}
+                    className="px-3 py-2 font-bold text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-200/70 dark:border-slate-800"
+                  >
+                    {parseInlineMarkdown(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70 bg-white dark:bg-slate-950">
+              {rows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
+                  {headers.map((_, cIdx) => (
+                    <td
+                      key={cIdx}
+                      className="px-3 py-2 text-slate-700 dark:text-slate-300 border-r last:border-r-0 border-slate-200/50 dark:border-slate-800/60"
+                    >
+                      {parseInlineMarkdown(row[cIdx] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    if (trimmed === '---' || trimmed === '***') {
+      flushList();
+      elements.push(<hr key={i} className="my-3 border-slate-200 dark:border-slate-800" />);
+      continue;
+    }
+
     if (line.startsWith('# ')) {
       flushList();
       elements.push(
-        <h1 key={i} className="text-base font-bold text-slate-900 dark:text-slate-100 mt-3 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
+        <h1 key={i} className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mt-3 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
           {parseInlineMarkdown(line.slice(2))}
         </h1>
       );
@@ -123,7 +199,7 @@ function renderMarkdown(content: string): React.ReactNode {
     if (line.startsWith('## ')) {
       flushList();
       elements.push(
-        <h2 key={i} className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-2.5 mb-1">
+        <h2 key={i} className="text-base font-bold text-slate-900 dark:text-slate-100 mt-2.5 mb-1">
           {parseInlineMarkdown(line.slice(3))}
         </h2>
       );
@@ -133,7 +209,7 @@ function renderMarkdown(content: string): React.ReactNode {
     if (line.startsWith('### ')) {
       flushList();
       elements.push(
-        <h3 key={i} className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mt-2 mb-1">
+        <h3 key={i} className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2 mb-1">
           {parseInlineMarkdown(line.slice(4))}
         </h3>
       );
@@ -143,20 +219,47 @@ function renderMarkdown(content: string): React.ReactNode {
     if (line.startsWith('> ')) {
       flushList();
       elements.push(
-        <blockquote key={i} className="pl-3 my-2 border-l-2 border-blue-500 italic text-xs text-slate-600 dark:text-slate-400">
+        <blockquote
+          key={i}
+          className="p-2.5 my-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 text-xs text-slate-700 dark:text-slate-200"
+        >
           {parseInlineMarkdown(line.slice(2))}
         </blockquote>
       );
       continue;
     }
 
-    if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-      inList = true;
-      listBuffer.push(line.trim().slice(2));
+    if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
+      flushList();
+      const checked = trimmed.slice(3, 4).toLowerCase() === 'x';
+      const label = trimmed.slice(6);
+      elements.push(
+        <div key={i} className="flex items-center gap-2 my-1 text-xs">
+          <span
+            className={cn(
+              'w-3.5 h-3.5 rounded flex items-center justify-center border text-[10px]',
+              checked
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'border-slate-300 dark:border-slate-700'
+            )}
+          >
+            {checked ? '✓' : ''}
+          </span>
+          <span className={cn(checked && 'line-through text-slate-400 dark:text-slate-500')}>
+            {parseInlineMarkdown(label)}
+          </span>
+        </div>
+      );
       continue;
     }
 
-    if (line.trim() === '') {
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      inList = true;
+      listBuffer.push(trimmed.slice(2));
+      continue;
+    }
+
+    if (trimmed === '') {
       flushList();
       continue;
     }
@@ -528,12 +631,12 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         aria-hidden="true"
       />
 
-      {/* Drawer Container */}
+      {/* Drawer Container (Notion Side-Peek Page Style) */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
-        className="relative w-full max-w-xl bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-full z-10 overflow-hidden transition-all duration-200 animate-in slide-in-from-right"
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-full z-10 overflow-hidden transition-all duration-200 animate-in slide-in-from-right"
       >
         {/* Drawer Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md">
@@ -548,7 +651,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
             </span>
             <span className="text-xs text-slate-400">·</span>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {isEditing ? 'Editar Tarea' : 'Nueva Tarea'}
+              {isEditing ? 'Página de Tarea' : 'Nueva Página de Tarea'}
             </span>
           </div>
 
@@ -614,9 +717,9 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
           </div>
         )}
 
-        {/* Drawer Body (Scrollable) */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* Title Input */}
+        {/* Drawer Body (Scrollable Notion Page) */}
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Notion-Style Large Page Title */}
           <div className="space-y-1.5">
             <label htmlFor="drawer-title" className="sr-only">
               Título de la tarea
@@ -632,7 +735,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
               }}
               placeholder="Escribe el título de la tarea..."
               maxLength={250}
-              className="w-full text-base sm:text-lg font-bold text-slate-900 dark:text-slate-50 placeholder-slate-400 bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 pb-2 focus:outline-none focus:border-blue-500 focus:ring-0 transition-colors"
+              className="w-full text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 placeholder-slate-300 dark:placeholder-slate-700 bg-transparent border-0 pb-1 focus:outline-none focus:ring-0 transition-colors"
             />
             {validationError && (
               <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 pt-1">
@@ -642,171 +745,171 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
             )}
           </div>
 
-          {/* Quick Selectors Row: Horizon, Column & Priority */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Horizon Selector */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Horizonte
-              </label>
-              <select
-                value={horizon}
-                onChange={(e) => setHorizon(e.target.value as Horizon)}
-                className="w-full px-2.5 py-1.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="monthly">Mensual (30 días)</option>
-                <option value="weekly">Semanal (7 días)</option>
-                <option value="daily">Diario (Hoy)</option>
-              </select>
-            </div>
-
-            {/* Column Selector */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Columna Kanban
-              </label>
-              <select
-                value={columnId}
-                onChange={(e) => setColumnId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {columns.map((col) => (
-                  <option key={col.id} value={col.id}>
-                    {col.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Priority Selector */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Prioridad
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as Priority)}
-                className="w-full px-2.5 py-1.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="high">Alta (Urgente)</option>
-                <option value="medium">Media (Normal)</option>
-                <option value="low">Baja (Secundaria)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Due Date & Due Time (Notification) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Fecha Límite */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Fecha Límite</span>
-                </span>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setDueDate(getTodayString())}
-                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  >
-                    Hoy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDueDate(addDays(getTodayString(), 1))}
-                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  >
-                    Mañana
-                  </button>
-                  {dueDate && (
-                    <button
-                      type="button"
-                      onClick={() => setDueDate('')}
-                      className="px-2 py-0.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
-                    >
-                      Borrar
-                    </button>
-                  )}
-                </div>
+          {/* Notion-Style Properties Table */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/30 divide-y divide-slate-200/60 dark:divide-slate-800/60 text-xs">
+            {/* Row 1: Horizonte */}
+            <div className="grid grid-cols-12 items-center px-3.5 py-2 gap-2">
+              <div className="col-span-4 sm:col-span-3 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Horizonte</span>
               </div>
-
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
+              <div className="col-span-8 sm:col-span-9">
+                <select
+                  value={horizon}
+                  onChange={(e) => setHorizon(e.target.value as Horizon)}
+                  className="w-full sm:w-auto min-w-[180px] px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="monthly">Mensual (30 días)</option>
+                  <option value="weekly">Semanal (7 días)</option>
+                  <option value="daily">Diario (Hoy)</option>
+                </select>
+              </div>
             </div>
 
-            {/* Hora de Recordatorio / Notificación */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Hora (Notificación)</span>
-                </span>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date(Date.now() + 60 * 1000);
-                      const hh = String(d.getHours()).padStart(2, '0');
-                      const mm = String(d.getMinutes()).padStart(2, '0');
-                      setDueTime(`${hh}:${mm}`);
-                      if (!dueDate) setDueDate(getTodayString());
-                      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-                        Notification.requestPermission().catch(() => {});
-                      }
-                    }}
-                    title="Programar en 1 minuto para probar"
-                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  >
-                    +1 min
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date(Date.now() + 60 * 60 * 1000);
-                      const hh = String(d.getHours()).padStart(2, '0');
-                      const mm = String(d.getMinutes()).padStart(2, '0');
-                      setDueTime(`${hh}:${mm}`);
-                      if (!dueDate) setDueDate(getTodayString());
-                      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-                        Notification.requestPermission().catch(() => {});
-                      }
-                    }}
-                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  >
-                    +1h
-                  </button>
-                  {dueTime && (
-                    <button
-                      type="button"
-                      onClick={() => setDueTime('')}
-                      className="px-2 py-0.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
-                    >
-                      Borrar
-                    </button>
-                  )}
-                </div>
+            {/* Row 2: Estado / Columna */}
+            <div className="grid grid-cols-12 items-center px-3.5 py-2 gap-2">
+              <div className="col-span-4 sm:col-span-3 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <Columns className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Estado</span>
               </div>
+              <div className="col-span-8 sm:col-span-9">
+                <select
+                  value={columnId}
+                  onChange={(e) => setColumnId(e.target.value)}
+                  className="w-full sm:w-auto min-w-[180px] px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  {columns.map((col) => (
+                    <option key={col.id} value={col.id}>
+                      {col.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-              <input
-                type="time"
-                aria-label="Hora de la tarea"
-                value={dueTime}
-                onChange={(e) => {
-                  setDueTime(e.target.value);
-                  if (e.target.value && !dueDate) {
-                    setDueDate(getTodayString());
-                  }
-                  if (e.target.value && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-                    Notification.requestPermission().catch(() => {});
-                  }
-                }}
-                className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
+            {/* Row 3: Prioridad */}
+            <div className="grid grid-cols-12 items-center px-3.5 py-2 gap-2">
+              <div className="col-span-4 sm:col-span-3 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <Flag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Prioridad</span>
+              </div>
+              <div className="col-span-8 sm:col-span-9">
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as Priority)}
+                  className="w-full sm:w-auto min-w-[180px] px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="high">Alta (Urgente)</option>
+                  <option value="medium">Media (Normal)</option>
+                  <option value="low">Baja (Secundaria)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 4: Fecha Límite */}
+            <div className="grid grid-cols-12 items-center px-3.5 py-2 gap-2">
+              <div className="col-span-4 sm:col-span-3 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>Fecha Límite</span>
+              </div>
+              <div className="col-span-8 sm:col-span-9 flex flex-wrap items-center gap-1.5">
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDueDate(getTodayString())}
+                  className="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDueDate(addDays(getTodayString(), 1))}
+                  className="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  Mañana
+                </button>
+                {dueDate && (
+                  <button
+                    type="button"
+                    onClick={() => setDueDate('')}
+                    className="px-2 py-0.5 text-[11px] rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                  >
+                    Borrar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Row 5: Hora (Notificación) */}
+            <div className="grid grid-cols-12 items-center px-3.5 py-2 gap-2">
+              <div className="col-span-4 sm:col-span-3 flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Hora Alarma</span>
+              </div>
+              <div className="col-span-8 sm:col-span-9 flex flex-wrap items-center gap-1.5">
+                <input
+                  type="time"
+                  aria-label="Hora de la tarea"
+                  value={dueTime}
+                  onChange={(e) => {
+                    setDueTime(e.target.value);
+                    if (e.target.value && !dueDate) {
+                      setDueDate(getTodayString());
+                    }
+                    if (e.target.value && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                      Notification.requestPermission().catch(() => {});
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(Date.now() + 60 * 1000);
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    setDueTime(`${hh}:${mm}`);
+                    if (!dueDate) setDueDate(getTodayString());
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                      Notification.requestPermission().catch(() => {});
+                    }
+                  }}
+                  title="Programar en 1 minuto para probar"
+                  className="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  +1 min
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(Date.now() + 60 * 60 * 1000);
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    setDueTime(`${hh}:${mm}`);
+                    if (!dueDate) setDueDate(getTodayString());
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+                      Notification.requestPermission().catch(() => {});
+                    }
+                  }}
+                  className="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  +1h
+                </button>
+                {dueTime && (
+                  <button
+                    type="button"
+                    onClick={() => setDueTime('')}
+                    className="px-2 py-0.5 text-[11px] rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                  >
+                    Borrar
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -870,8 +973,8 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
                 <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
                   <span>
                     {recurrence === 'custom'
-                      ? 'Toca un día para activarlo/desactivarlo y editar su rutina:'
-                      : 'Selecciona un día para escribir qué te toca hacer ese día (ej. ejercicios):'}
+                      ? 'Toca un día para activarlo/desactivarlo y armar su tabla o rutina tipo Notion:'
+                      : 'Selecciona un día de la semana para armar su tabla de ejercicios o rutina:'}
                   </span>
                 </div>
 
@@ -943,7 +1046,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
                   })}
                 </div>
 
-                {/* Editor de rutina para el día seleccionado */}
+                {/* Editor Notion para la rutina del día seleccionado */}
                 {(() => {
                   const dayNames: Record<number, string> = {
                     1: 'Lunes',
@@ -959,10 +1062,10 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
                   const currentRoutineVal = routineSchedule[dayKey] || '';
 
                   return (
-                    <div className="space-y-1.5 bg-white dark:bg-slate-950 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60">
+                    <div className="space-y-2 bg-white dark:bg-slate-950 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                          📋 Rutina / Ejercicios del {currentDayName}
+                          📋 Rutina / Tabla del {currentDayName}
                           {new Date().getDay() === selectedRoutineDay && ' (Hoy)'}
                         </span>
 
@@ -977,25 +1080,24 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
                         )}
                       </div>
 
-                      <textarea
-                        rows={3}
+                      <NotionDescriptionEditor
+                        key={`routine-editor-${dayKey}`}
                         value={currentRoutineVal}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                        onChange={(val) => {
                           setRoutineSchedule((prev) => ({
                             ...prev,
                             [dayKey]: val,
                           }));
-                          // Si está editando el día que corresponde a hoy, actualizar la descripción principal en vivo
                           if (new Date().getDay() === selectedRoutineDay) {
                             setDescription(val);
                           }
                         }}
-                        placeholder={`Escribe qué te toca hacer el ${currentDayName} (ej: Pecho y Tríceps: Press banca 4x10, Fondos 4x12...)`}
-                        className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y"
+                        placeholder={`Agrega títulos grandes o una tabla de ejercicios para el ${currentDayName}...`}
+                        compact
                       />
+
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        ✨ Al cambiar de día, tu tarea volverá automáticamente a <strong>Por hacer</strong> con la rutina del día que corresponda y guardará el logro del día anterior en tus métricas del Panel Principal.
+                        ✨ Al cambiar de día, tu tarea volverá automáticamente a <strong>Por hacer</strong> con la tabla/rutina del día correspondiente y guardará el logro del día anterior en el Panel Principal.
                       </p>
                     </div>
                   );
@@ -1023,63 +1125,56 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {horizon === 'weekly'
-                  ? 'Las tareas semanales solo pueden vincularse a objetivos mensuales.'
-                  : 'Las tareas diarias pueden vincularse a compromisos semanales o metas del mes.'}
-              </p>
             </div>
           )}
 
-          {/* Markdown Description with Edit / Preview Tabs */}
-          <div className="space-y-2">
+          {/* Notion-Style Rich Page Description (Blocks, Tables, Large Titles & Preview) */}
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-                <FileText className="w-3.5 h-3.5" />
-                <span>Descripción (Markdown)</span>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Notas y Tablas de la Tarea (Estilo Notion)</span>
               </label>
 
-              {/* Edit vs Preview Toggle */}
+              {/* Edit (Notion Blocks) vs Preview Toggle */}
               <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
                 <button
                   type="button"
                   onClick={() => setDescTab('edit')}
                   className={cn(
-                    'px-2 py-0.5 rounded-md text-[11px] font-medium flex items-center gap-1 transition-all',
+                    'px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer',
                     descTab === 'edit'
                       ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   )}
                 >
                   <Edit3 className="w-3 h-3" />
-                  <span>Editar</span>
+                  <span>Bloques y Tablas</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDescTab('preview')}
                   className={cn(
-                    'px-2 py-0.5 rounded-md text-[11px] font-medium flex items-center gap-1 transition-all',
+                    'px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer',
                     descTab === 'preview'
                       ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   )}
                 >
                   <Eye className="w-3 h-3" />
-                  <span>Vista previa</span>
+                  <span>Vista Lectura</span>
                 </button>
               </div>
             </div>
 
             {descTab === 'edit' ? (
-              <textarea
+              <NotionDescriptionEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Escribe detalles en Markdown (# Título, - Lista, **negrita**, `código`)..."
-                rows={5}
-                className="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-y"
+                onChange={setDescription}
+                placeholder="Escribe tus notas o inserta títulos grandes y tablas..."
               />
             ) : (
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 min-h-[120px] max-h-72 overflow-y-auto">
+              <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 min-h-[140px] max-h-96 overflow-y-auto">
                 {renderMarkdown(description)}
               </div>
             )}

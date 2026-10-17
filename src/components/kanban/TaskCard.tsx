@@ -218,7 +218,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {/* Descripción / Rutina del día preview */}
           {task.description && task.description.trim() && (
             <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mb-2.5 bg-slate-50/80 dark:bg-slate-950/50 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800/70">
-              {task.description.replace(/^[#>*-\s]+/gm, '')}
+              {task.description
+                .split('\n')
+                .filter((line) => !/^\|[\s\-:|]+\|$/.test(line.trim()) && line.trim() !== '---')
+                .map((line) =>
+                  line
+                    .replace(/^[#>*-\s]+/, '')
+                    .replace(/^\[[ xX]\]\s*/, '')
+                    .replace(/^\||\|$/g, '')
+                    .replace(/\s*\|\s*/g, ' · ')
+                    .trim()
+                )
+                .filter(Boolean)
+                .join(' — ')}
             </p>
           )}
 
