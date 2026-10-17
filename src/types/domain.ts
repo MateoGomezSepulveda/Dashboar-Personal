@@ -60,6 +60,8 @@ export type TaskTag = Tag; // Convenience alias
 // 4. Task Entity Model
 // ----------------------------------------------------------------------------
 
+export type RecurrencePattern = 'none' | 'daily' | 'weekdays' | 'custom';
+
 export interface Task {
   /** Unique task identifier (UUID v4) */
   id: string;
@@ -93,6 +95,16 @@ export interface Task {
   completedAt?: string | null;
   /** Optional Google Calendar Event ID when synced with primary Google Calendar */
   googleCalendarEventId?: string | null;
+  /** Recurrence pattern for daily habits/routines (e.g. 'weekdays', 'daily', 'custom') */
+  recurrence?: RecurrencePattern;
+  /** Active days of week for recurrence (0 = Sunday, 1 = Monday ... 6 = Saturday) */
+  recurrenceDays?: number[];
+  /** Per-day routine notes/exercises keyed by day index ('1' = Lunes ... '0' = Domingo) */
+  routineSchedule?: Record<string, string>;
+  /** YYYY-MM-DD date when this recurring task was last reset for the day */
+  lastResetDate?: string | null;
+  /** True when a completed daily task was archived into historical metrics */
+  isArchivedHistory?: boolean;
 }
 
 // ----------------------------------------------------------------------------

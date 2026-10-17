@@ -459,16 +459,66 @@ function MainDashboard() {
     const checkScheduledTasks = () => {
       const now = new Date();
       const todayStr = getTodayString(now);
+      const todayDayKey = String(now.getDay());
       const currentHH = String(now.getHours()).padStart(2, '0');
       const currentMM = String(now.getMinutes()).padStart(2, '0');
       const currentTimeStr = `${currentHH}:${currentMM}`;
+      const todoColId = columns.find((c) => !c.isCompletedColumn)?.id || 'todo';
 
       tasks.forEach((task) => {
-        if (!task.dueTime) return;
+        if (task.isArchivedHistory) return;
 
-        // Ignorar si la tarea ya está en una columna de completado
         const col = columns.find((c) => c.id === task.columnId);
         const isDone = Boolean(col?.isCompletedColumn || task.columnId === 'done' || task.completedAt);
+
+        // A. Auto-reinicio diario de tareas repetitivas / rutinas (ej. Gym) al cambiar de día
+        if (task.recurrence && task.recurrence !== 'none') {
+          const lastReset = task.lastResetDate || (task.completedAt ? task.completedAt.slice(0, 10) : task.dueDate);
+          if (lastReset && lastReset < todayStr) {
+            if (isDone) {
+              // Guardar el logro de ayer en el historial para métricas del Panel Principal
+              addTask({
+                title: task.title,
+                description: task.description,
+                horizon: task.horizon,
+                columnId: task.columnId,
+                priority: task.priority,
+                dueDate: lastReset,
+                dueTime: task.dueTime,
+                tags: task.tags,
+                subtasks: task.subtasks,
+                parentTaskId: task.parentTaskId,
+                completedAt: task.completedAt || new Date().toISOString(),
+                recurrence: 'none',
+                isArchivedHistory: true,
+              });
+            }
+
+            const routineForToday = task.routineSchedule?.[todayDayKey]?.trim();
+            updateTask(task.id, {
+              columnId: todoColId,
+              completedAt: null,
+              dueDate: todayStr,
+              lastResetDate: todayStr,
+              description: routineForToday || task.description,
+              subtasks: task.subtasks.map((st) => ({ ...st, completed: false })),
+            });
+            return;
+          }
+        } else if (task.horizon === 'daily' && isDone) {
+          // B. Auto-archivar tareas diarias no repetitivas completadas en días anteriores (< hoy)
+          const completedDate = task.completedAt
+            ? task.completedAt.slice(0, 10)
+            : task.dueDate
+            ? task.dueDate.slice(0, 10)
+            : '';
+          if (completedDate && completedDate < todayStr) {
+            updateTask(task.id, { isArchivedHistory: true });
+            return;
+          }
+        }
+
+        if (!task.dueTime) return;
         if (isDone) return;
 
         // Si tiene fecha asignada debe coincidir con hoy; si no tiene fecha se asume hoy
@@ -499,7 +549,7 @@ function MainDashboard() {
     checkScheduledTasks();
     const intervalId = setInterval(checkScheduledTasks, 5000);
     return () => clearInterval(intervalId);
-  }, [tasks, columns]);
+  }, [tasks, columns, addTask, updateTask]);
 
   const handleDismissAlert = (taskId: string) => {
     setDueAlerts((prev) => prev.filter((t) => t.id !== taskId));

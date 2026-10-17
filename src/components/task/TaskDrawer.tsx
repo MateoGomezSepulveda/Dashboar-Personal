@@ -19,8 +19,9 @@ import {
   SunMedium,
   Columns,
   ExternalLink,
+  Repeat,
 } from 'lucide-react';
-import { Task, Horizon, Priority, Tag, Subtask, KanbanColumn } from '../../types/domain';
+import { Task, Horizon, Priority, Tag, Subtask, KanbanColumn, RecurrencePattern } from '../../types/domain';
 import { useTasks } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 import { getGoogleCalendarToken, authorizeGoogleCalendar } from '../../services/firebase';
@@ -253,6 +254,10 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [syncWithGCal, setSyncWithGCal] = useState<boolean>(true);
+  const [recurrence, setRecurrence] = useState<RecurrencePattern>('none');
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [routineSchedule, setRoutineSchedule] = useState<Record<string, string>>({});
+  const [selectedRoutineDay, setSelectedRoutineDay] = useState<number>(() => new Date().getDay());
 
   // UI state
   const [descTab, setDescTab] = useState<'edit' | 'preview'>('edit');
@@ -264,6 +269,9 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
   // Synchronize state when opening / switching task
   useEffect(() => {
     if (isOpen) {
+      const todayDay = new Date().getDay();
+      setSelectedRoutineDay(todayDay);
+
       if (task) {
         setTitle(task.title || '');
         setDescription(task.description || '');
@@ -276,6 +284,17 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setSelectedTagIds(task.tags || []);
         setSubtasks(task.subtasks || []);
         setSyncWithGCal(true);
+        setRecurrence(task.recurrence || 'none');
+        setRecurrenceDays(
+          Array.isArray(task.recurrenceDays) && task.recurrenceDays.length > 0
+            ? task.recurrenceDays
+            : task.recurrence === 'weekdays'
+            ? [1, 2, 3, 4, 5]
+            : task.recurrence === 'daily'
+            ? [1, 2, 3, 4, 5, 6, 0]
+            : []
+        );
+        setRoutineSchedule(task.routineSchedule ? { ...task.routineSchedule } : {});
       } else {
         setTitle('');
         setDescription('');
@@ -288,6 +307,9 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
         setSelectedTagIds([]);
         setSubtasks([]);
         setSyncWithGCal(true);
+        setRecurrence('none');
+        setRecurrenceDays([]);
+        setRoutineSchedule({});
       }
       setDescTab('edit');
       setValidationError(null);
@@ -337,6 +359,24 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  const handleRecurrenceChange = (pattern: RecurrencePattern) => {
+    setRecurrence(pattern);
+    if (pattern === 'weekdays') {
+      setRecurrenceDays([1, 2, 3, 4, 5]);
+      if (selectedRoutineDay === 0 || selectedRoutineDay === 6) {
+        setSelectedRoutineDay(1);
+      }
+    } else if (pattern === 'daily') {
+      setRecurrenceDays([1, 2, 3, 4, 5, 6, 0]);
+    } else if (pattern === 'custom') {
+      if (recurrenceDays.length === 0) {
+        setRecurrenceDays([1, 2, 3, 4, 5]);
+      }
+    } else {
+      setRecurrenceDays([]);
+    }
+  };
+
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmedTitle = title.trim();
@@ -356,7 +396,18 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
       Notification.requestPermission().catch(() => {});
     }
 
-    const resolvedDueDate = dueDate ? dueDate : (dueTime ? getTodayString() : null);
+    const todayStr = getTodayString();
+    const todayDayKey = String(new Date().getDay());
+    const resolvedDueDate =
+      dueDate || (dueTime || recurrence !== 'none' ? todayStr : null);
+
+    // Si es tarea repetitiva y tiene rutina asignada para el día de hoy, sincronizar con la descripción activa
+    const todayRoutineText = routineSchedule[todayDayKey]?.trim();
+    const finalDescription =
+      recurrence !== 'none' && todayRoutineText
+        ? todayRoutineText
+        : description;
+
     const taskId = isEditing && task
       ? task.id
       : (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -366,7 +417,7 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
     const taskPayload: Partial<Task> & { title: string; columnId: string } = {
       id: taskId,
       title: trimmedTitle,
-      description,
+      description: finalDescription,
       horizon,
       columnId,
       priority,
@@ -376,6 +427,10 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
       tags: selectedTagIds,
       subtasks,
       googleCalendarEventId: task?.googleCalendarEventId ?? null,
+      recurrence,
+      recurrenceDays: recurrence === 'none' ? [] : recurrenceDays,
+      routineSchedule: recurrence === 'none' ? {} : routineSchedule,
+      lastResetDate: recurrence === 'none' ? null : (task?.lastResetDate || todayStr),
     };
 
     if (onSave) {
@@ -789,6 +844,165 @@ export const TaskDrawer: React.FC<TaskDrawerProps> = ({
               </a>
             </div>
           )}
+
+          {/* Repetición y Rutina por Día (Hábitos / Gym) */}
+          <div className="space-y-3 p-3.5 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/50">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                <Repeat className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Tarea Repetitiva / Rutina por Día (Ej: Gym)</span>
+              </label>
+
+              <select
+                value={recurrence}
+                onChange={(e) => handleRecurrenceChange(e.target.value as RecurrencePattern)}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              >
+                <option value="none">No se repite (Una sola vez)</option>
+                <option value="weekdays">Lunes a Viernes (Entre semana)</option>
+                <option value="daily">Todos los días (Lun - Dom)</option>
+                <option value="custom">Días personalizados</option>
+              </select>
+            </div>
+
+            {recurrence !== 'none' && (
+              <div className="space-y-3 pt-2 border-t border-emerald-200/60 dark:border-emerald-900/40">
+                <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
+                  <span>
+                    {recurrence === 'custom'
+                      ? 'Toca un día para activarlo/desactivarlo y editar su rutina:'
+                      : 'Selecciona un día para escribir qué te toca hacer ese día (ej. ejercicios):'}
+                  </span>
+                </div>
+
+                {/* Botones de los 7 días de la semana */}
+                <div className="grid grid-cols-7 gap-1.5">
+                  {[
+                    { id: 1, short: 'Lun', full: 'Lunes' },
+                    { id: 2, short: 'Mar', full: 'Martes' },
+                    { id: 3, short: 'Mié', full: 'Miércoles' },
+                    { id: 4, short: 'Jue', full: 'Jueves' },
+                    { id: 5, short: 'Vie', full: 'Viernes' },
+                    { id: 6, short: 'Sáb', full: 'Sábado' },
+                    { id: 0, short: 'Dom', full: 'Domingo' },
+                  ].map((day) => {
+                    const isActiveDay = recurrenceDays.includes(day.id);
+                    const isSelected = selectedRoutineDay === day.id;
+                    const hasRoutine = Boolean(routineSchedule[String(day.id)]?.trim());
+                    const isToday = new Date().getDay() === day.id;
+
+                    return (
+                      <button
+                        key={day.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRoutineDay(day.id);
+                          if (recurrence === 'custom' && isSelected) {
+                            setRecurrenceDays((prev) =>
+                              prev.includes(day.id)
+                                ? prev.filter((d) => d !== day.id)
+                                : [...prev, day.id]
+                            );
+                          } else if (recurrence === 'custom' && !isActiveDay) {
+                            setRecurrenceDays((prev) => [...prev, day.id]);
+                          }
+                        }}
+                        className={cn(
+                          'relative py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer border',
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : isActiveDay
+                            ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-emerald-300 dark:border-emerald-800 hover:border-emerald-500'
+                            : 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-400 border-slate-200 dark:border-slate-800 opacity-60'
+                        )}
+                      >
+                        <span>{day.short}</span>
+                        <div className="flex items-center gap-1">
+                          {isToday && (
+                            <span
+                              className={cn(
+                                'text-[8px] uppercase font-extrabold',
+                                isSelected ? 'text-emerald-100' : 'text-amber-500'
+                              )}
+                            >
+                              Hoy
+                            </span>
+                          )}
+                          {hasRoutine && (
+                            <span
+                              className={cn(
+                                'w-1.5 h-1.5 rounded-full',
+                                isSelected ? 'bg-white' : 'bg-emerald-500'
+                              )}
+                              title={`Tiene rutina configurada para el ${day.full}`}
+                            />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Editor de rutina para el día seleccionado */}
+                {(() => {
+                  const dayNames: Record<number, string> = {
+                    1: 'Lunes',
+                    2: 'Martes',
+                    3: 'Miércoles',
+                    4: 'Jueves',
+                    5: 'Viernes',
+                    6: 'Sábado',
+                    0: 'Domingo',
+                  };
+                  const currentDayName = dayNames[selectedRoutineDay] || 'Día';
+                  const dayKey = String(selectedRoutineDay);
+                  const currentRoutineVal = routineSchedule[dayKey] || '';
+
+                  return (
+                    <div className="space-y-1.5 bg-white dark:bg-slate-950 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/60">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                          📋 Rutina / Ejercicios del {currentDayName}
+                          {new Date().getDay() === selectedRoutineDay && ' (Hoy)'}
+                        </span>
+
+                        {currentRoutineVal.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setDescription(currentRoutineVal)}
+                            className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          >
+                            Cargar en descripción de hoy
+                          </button>
+                        )}
+                      </div>
+
+                      <textarea
+                        rows={3}
+                        value={currentRoutineVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRoutineSchedule((prev) => ({
+                            ...prev,
+                            [dayKey]: val,
+                          }));
+                          // Si está editando el día que corresponde a hoy, actualizar la descripción principal en vivo
+                          if (new Date().getDay() === selectedRoutineDay) {
+                            setDescription(val);
+                          }
+                        }}
+                        placeholder={`Escribe qué te toca hacer el ${currentDayName} (ej: Pecho y Tríceps: Press banca 4x10, Fondos 4x12...)`}
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-y"
+                      />
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        ✨ Al cambiar de día, tu tarea volverá automáticamente a <strong>Por hacer</strong> con la rutina del día que corresponda y guardará el logro del día anterior en tus métricas del Panel Principal.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
 
           {/* Cross-Horizon Linking (Parent Task Selector) */}
           {horizon !== 'monthly' && (

@@ -11,6 +11,7 @@ import {
   Edit,
   ListTree,
   CheckCircle2,
+  Repeat,
 } from 'lucide-react';
 import { Task } from '../../types/domain';
 import { useTasks } from '../../context/TaskContext';
@@ -127,6 +128,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 {priorityConfig.label}
               </span>
+
+              {/* Recurrence Badge */}
+              {task.recurrence && task.recurrence !== 'none' && (
+                <span
+                  title="Tarea repetitiva / rutina"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
+                >
+                  <Repeat className="w-2.5 h-2.5" />
+                  <span>
+                    {task.recurrence === 'weekdays'
+                      ? 'Lun-Vie'
+                      : task.recurrence === 'daily'
+                      ? 'Diaria'
+                      : 'Rutina'}
+                  </span>
+                </span>
+              )}
             </div>
 
             {/* Quick Actions Menu Trigger */}
@@ -190,12 +208,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {/* Task Title */}
           <h3
             className={cn(
-              'text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug mb-2 line-clamp-2',
+              'text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug mb-1.5 line-clamp-2',
               isCompletedColumn && 'line-through text-slate-400 dark:text-slate-500'
             )}
           >
             {task.title}
           </h3>
+
+          {/* Descripción / Rutina del día preview */}
+          {task.description && task.description.trim() && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mb-2.5 bg-slate-50/80 dark:bg-slate-950/50 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800/70">
+              {task.description.replace(/^[#>*-\s]+/gm, '')}
+            </p>
+          )}
 
           {/* Subtasks Progress Bar (if task has subtasks) */}
           {totalSubtasks > 0 && (

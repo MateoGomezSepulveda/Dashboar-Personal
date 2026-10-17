@@ -62,6 +62,11 @@ export function taskReducer(state: DashboardAppState, action: TaskAction): Dashb
         updatedAt: payload.updatedAt || now,
         completedAt: payload.completedAt !== undefined ? payload.completedAt : (isCompleted ? now : null),
         googleCalendarEventId: payload.googleCalendarEventId ?? null,
+        recurrence: payload.recurrence || 'none',
+        recurrenceDays: Array.isArray(payload.recurrenceDays) ? [...payload.recurrenceDays] : [],
+        routineSchedule: payload.routineSchedule ? { ...payload.routineSchedule } : {},
+        lastResetDate: payload.lastResetDate ?? null,
+        isArchivedHistory: Boolean(payload.isArchivedHistory),
       };
 
       // Si se inserta en un orden específico, reordenar la columna contiguamente

@@ -291,12 +291,12 @@ export function useTasks() {
   };
 }
 
-// Selector memorizado de tareas filtradas por horizonte y término de búsqueda
+// Selector memorizado de tareas filtradas por horizonte y término de búsqueda (excluyendo historial archivado)
 export function useFilteredTasks(): Task[] {
   const { tasks, selectedHorizon, searchQuery } = useTaskState();
 
   return useMemo(() => {
-    let result = tasks;
+    let result = tasks.filter(t => !t.isArchivedHistory);
 
     if (selectedHorizon !== 'all') {
       result = result.filter(t => t.horizon === selectedHorizon);
@@ -319,7 +319,7 @@ export function useTasksByColumn(columnId: string): Task[] {
 
   return useMemo(() => {
     return tasks
-      .filter(t => t.columnId === columnId)
+      .filter(t => !t.isArchivedHistory && t.columnId === columnId)
       .sort((a, b) => a.order - b.order);
   }, [tasks, columnId]);
 }

@@ -48,8 +48,15 @@ export function calculateMetrics(
   const totalTasks = tasks.length;
   const refDateStr = normalizeDateString(referenceDate);
 
-  // Daily Tasks
-  const dailyTasks = tasks.filter(t => t.horizon === 'daily');
+  // Daily Tasks (active today + any archived today, excluding archived tasks from previous days)
+  const dailyTasks = tasks.filter(t => {
+    if (t.horizon !== 'daily') return false;
+    if (t.isArchivedHistory) {
+      const completedDate = t.completedAt ? t.completedAt.slice(0, 10) : (t.dueDate ? t.dueDate.slice(0, 10) : '');
+      return completedDate === refDateStr;
+    }
+    return true;
+  });
   const completedDaily = dailyTasks.filter(t => completedColumnIds.has(t.columnId));
   const dailyPercent = dailyTasks.length === 0
     ? 0

@@ -151,6 +151,7 @@ export const PrincipalOverview: React.FC<PrincipalOverviewProps> = ({ onSelectTa
     updateTask(task.id, {
       columnId: todoColId,
       completedAt: null,
+      isArchivedHistory: false,
     });
   };
 
@@ -692,6 +693,12 @@ export const PrincipalOverview: React.FC<PrincipalOverviewProps> = ({ onSelectTa
                         >
                           {horizonCfg.shortLabel}
                         </span>
+
+                        {task.isArchivedHistory && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                            Historial guardado
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 line-through decoration-emerald-500/60 truncate">

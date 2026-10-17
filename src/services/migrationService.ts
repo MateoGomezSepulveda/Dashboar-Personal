@@ -81,6 +81,18 @@ function backfillTaskDefaults(raw: any, index: number): Task {
   const completedAt = typeof task.completedAt === 'string' ? task.completedAt : null;
   const parentTaskId = typeof task.parentTaskId === 'string' ? task.parentTaskId : null;
   const googleCalendarEventId = typeof task.googleCalendarEventId === 'string' ? task.googleCalendarEventId : null;
+  const recurrence = ['none', 'daily', 'weekdays', 'custom'].includes(task.recurrence)
+    ? task.recurrence
+    : 'none';
+  const recurrenceDays = Array.isArray(task.recurrenceDays)
+    ? task.recurrenceDays.filter((d: unknown) => typeof d === 'number')
+    : [];
+  const routineSchedule =
+    task.routineSchedule && typeof task.routineSchedule === 'object'
+      ? task.routineSchedule
+      : {};
+  const lastResetDate = typeof task.lastResetDate === 'string' ? task.lastResetDate : null;
+  const isArchivedHistory = Boolean(task.isArchivedHistory);
 
   return {
     id,
@@ -99,6 +111,11 @@ function backfillTaskDefaults(raw: any, index: number): Task {
     updatedAt,
     completedAt,
     googleCalendarEventId,
+    recurrence,
+    recurrenceDays,
+    routineSchedule,
+    lastResetDate,
+    isArchivedHistory,
   };
 }
 
