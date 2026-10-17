@@ -636,6 +636,7 @@ function MainDashboard() {
 
         <HorizonView
           onAddTask={handleOpenNewTask}
+          onSelectTask={handleOpenEditTask}
           kanbanBoardNode={
             <KanbanBoard
               onOpenDrawerWithTask={handleOpenEditTask}

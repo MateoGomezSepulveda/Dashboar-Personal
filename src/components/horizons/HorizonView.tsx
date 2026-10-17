@@ -8,8 +8,9 @@ import {
   ListTree,
 } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
-import { Horizon } from '../../types/domain';
+import { Horizon, Task } from '../../types/domain';
 import { QuickStats } from '../layout/QuickStats';
+import { PrincipalOverview } from './PrincipalOverview';
 import { MonthlyGoals } from './MonthlyGoals';
 import { WeeklyCommitments } from './WeeklyCommitments';
 import { cn } from '../../utils/cn';
@@ -17,12 +18,14 @@ import { cn } from '../../utils/cn';
 export interface HorizonViewProps {
   className?: string;
   onAddTask?: (defaultHorizon?: Horizon, parentTaskId?: string) => void;
+  onSelectTask?: (task: Task) => void;
   kanbanBoardNode?: React.ReactNode;
 }
 
 export const HorizonView: React.FC<HorizonViewProps> = ({
   className,
   onAddTask,
+  onSelectTask,
   kanbanBoardNode,
 }) => {
   const { state } = useTasks();
@@ -41,15 +44,16 @@ export const HorizonView: React.FC<HorizonViewProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              Panel Principal: Resumen de Productividad
+              Panel Principal: Resumen de Productividad y Cumplimiento
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Progreso diario, compromisos semanales, tareas vencidas y distribución de prioridades
+              Balance de tareas cumplidas vs. no cumplidas, progreso por horizonte y prioridades
             </p>
           </div>
         </div>
 
         <QuickStats className="mb-0" />
+        <PrincipalOverview onSelectTask={onSelectTask} />
       </div>
     );
   }
