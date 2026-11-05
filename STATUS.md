@@ -1,7 +1,7 @@
 # Estado del Proyecto: Dashboard Personal
 
-> **Última Actualización:** 2026-10-22
-> **Estado:** Fase 2 y Mejoras Avanzadas Completadas (100% - Firebase Cloud, Google Calendar Bidireccional, Editor Notion/Gym, Hábitos Recurrentes, Alertas & PWA)
+> **Última Actualización:** 2026-11-05
+> **Estado:** Fase 2 y Mejoras Avanzadas Completadas (100% - Sincronización Automática de Proyectos/Ideas desde Organizador de Ideas con Fechas por Roadmap, Firebase Cloud, Google Calendar Bidireccional, Editor Notion/Gym, Hábitos Recurrentes, Alertas & PWA)
 
 ---
 
@@ -41,6 +41,10 @@ Se ha culminado la implementación integral del **Personal Dashboard**, abarcand
   - **Sincronización Bidireccional con Google Calendar (`googleCalendarService.ts`):** Exportación/actualización de tareas con fecha/hora e importación de eventos próximos (30 días).
   - **Sistema de Alertas en Tiempo Real:** Reloj vigilante cada 5s con sonido sintetizado vía Web Audio API, banner interactivo en pantalla y notificaciones nativas vía Service Worker.
   - **Documentación General (`README.md`):** Documentación completa de arquitectura, características e instalación actualizada.
+
+- [x] **Hito 9: Inyección Automática de Proyectos desde Organizador de Ideas con Fechas por Roadmap**
+  - **Motor de Conversión y Plazos (`ideaSyncService.ts`):** Mantiene la interfaz del Dashboard 100% intacta e inyecta automáticamente cada idea real creada en el **Organizador de Ideas** (descartando las 3 ideas de ejemplo semilla) como tareas organizadas en **Mensual** (Proyecto macro con fecha final del Roadmap), **Semanal** (Fases del Roadmap con sus fechas límite y entregables) y **Diario** (Pasos/subtareas con fechas escalonadas dentro de su fase).
+  - **Conexión Directa Multi-Proyecto (`firebase.ts` y `TaskContext.tsx`):** Lee todos los perfiles `ideavault_profile_v2_*` en `localStorage`, se autentica y escucha en tiempo real la colección `ideavault_users` del proyecto Firebase `software-de-ideas`, y sincroniza mediante el puente `ideavault_sync_bridge`.
 
 ---
 

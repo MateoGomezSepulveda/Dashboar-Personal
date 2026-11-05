@@ -10,7 +10,17 @@ import {
   saveDashboardToCloud,
   loadDashboardFromCloud,
   subscribeToCloudDashboard,
+  subscribeToRealIdeasCloud,
 } from '../services/firebase';
+import {
+  BRIDGE_CHANNEL_NAME,
+  BRIDGE_STORAGE_KEY,
+  IDEAVAULT_PROFILE_PREFIX,
+  IDEAVAULT_STORAGE_KEY,
+  mergeIdeasIntoDashboardState,
+  readRealIdeasFromLocalStorage,
+  type IdeaRecord,
+} from '../services/ideaSyncService';
 
 // Contextos separados para prevenir re-renders superfluos
 export const TaskStateContext = createContext<DashboardAppState | undefined>(undefined);
@@ -26,7 +36,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
 
   const [state, dispatch] = useReducer(
     taskReducer,
-    initialState || (typeof window !== 'undefined' && !isConfigured ? loadPersistedState() : INITIAL_APP_STATE)
+    initialState ||
+      (typeof window !== 'undefined' && !isConfigured
+        ? mergeIdeasIntoDashboardState(loadPersistedState(), readRealIdeasFromLocalStorage()).nextState
+        : mergeIdeasIntoDashboardState(INITIAL_APP_STATE, readRealIdeasFromLocalStorage()).nextState)
   );
 
   const isInitialMount = useRef(true);
@@ -34,6 +47,14 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
   const isCloudHydrated = useRef(false);
   const lastSyncedJson = useRef<string>('');
   const wasAuthenticated = useRef(false);
+  const stateRef = useRef<DashboardAppState>(state);
+  const latestIdeasRef = useRef<IdeaRecord[]>(
+    typeof window !== 'undefined' && !initialState ? readRealIdeasFromLocalStorage() : []
+  );
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Sincronización en tiempo real con Firestore cuando el usuario está autenticado
   // y limpieza a datos de ejemplo al abrir sin sesión o al cerrar sesión
@@ -43,12 +64,15 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
       lastSyncedJson.current = '';
 
       // Si estaba autenticado y cerró sesión (o al iniciar sin sesión activa),
-      // eliminar los datos de la cuenta y restaurar los datos de ejemplo iniciales
+      // eliminar los datos de la cuenta y restaurar los datos de ejemplo iniciales (más ideas locales reales)
       if (!initialState && (wasAuthenticated.current || (!loading && isConfigured))) {
         wasAuthenticated.current = false;
         isRemoteUpdate.current = true;
-        saveState(INITIAL_APP_STATE);
-        dispatch({ type: 'RESET_STATE', payload: { seedState: INITIAL_APP_STATE } });
+        const localIdeas = readRealIdeasFromLocalStorage();
+        latestIdeasRef.current = localIdeas;
+        const { nextState } = mergeIdeasIntoDashboardState(INITIAL_APP_STATE, localIdeas);
+        saveState(nextState);
+        dispatch({ type: 'RESET_STATE', payload: { seedState: nextState } });
       }
       return;
     }
@@ -62,16 +86,29 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
     loadDashboardFromCloud(user.uid).then((cloudState) => {
       if (!isSubscribed) return;
       if (cloudState && isValidAppState(cloudState)) {
-        const currentSignature = `${JSON.stringify(cloudState.tasks)}|${JSON.stringify(cloudState.columns)}`;
+        const merged = mergeIdeasIntoDashboardState(cloudState, latestIdeasRef.current);
+        const targetState = merged.nextState;
+        const currentSignature = `${JSON.stringify(targetState.tasks)}|${JSON.stringify(targetState.columns)}`;
         lastSyncedJson.current = currentSignature;
-        isRemoteUpdate.current = true;
-        dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+        isRemoteUpdate.current = !merged.hasChanges;
+        dispatch({ type: 'LOAD_STATE', payload: { state: targetState } });
         isCloudHydrated.current = true;
-        setSyncStatus('synced');
+        if (merged.hasChanges) {
+          saveDashboardToCloud(user.uid, targetState).then((ok) => {
+            if (isSubscribed) setSyncStatus(ok ? 'synced' : 'error');
+          });
+        } else {
+          setSyncStatus('synced');
+        }
       } else {
         // Si es una cuenta nueva sin datos previos en la nube, guardar el estado base
         isCloudHydrated.current = true;
-        saveDashboardToCloud(user.uid, state).then((ok) => {
+        const merged = mergeIdeasIntoDashboardState(stateRef.current, latestIdeasRef.current);
+        const targetState = merged.nextState;
+        if (merged.hasChanges) {
+          dispatch({ type: 'LOAD_STATE', payload: { state: targetState } });
+        }
+        saveDashboardToCloud(user.uid, targetState).then((ok) => {
           if (isSubscribed) setSyncStatus(ok ? 'synced' : 'error');
         });
       }
@@ -81,14 +118,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
     const unsubscribe = subscribeToCloudDashboard(user.uid, (cloudState) => {
       if (!isSubscribed) return;
       if (cloudState && isValidAppState(cloudState)) {
-        const incomingTasksJson = JSON.stringify(cloudState.tasks);
-        const incomingColsJson = JSON.stringify(cloudState.columns);
+        const merged = mergeIdeasIntoDashboardState(cloudState, latestIdeasRef.current);
+        const targetState = merged.nextState;
+        const incomingTasksJson = JSON.stringify(targetState.tasks);
+        const incomingColsJson = JSON.stringify(targetState.columns);
         const currentSignature = `${incomingTasksJson}|${incomingColsJson}`;
 
         if (currentSignature !== lastSyncedJson.current) {
           lastSyncedJson.current = currentSignature;
-          isRemoteUpdate.current = true;
-          dispatch({ type: 'LOAD_STATE', payload: { state: cloudState } });
+          isRemoteUpdate.current = !merged.hasChanges;
+          dispatch({ type: 'LOAD_STATE', payload: { state: targetState } });
         }
         isCloudHydrated.current = true;
         setSyncStatus('synced');
@@ -100,6 +139,77 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children, initialSta
       unsubscribe();
     };
   }, [user, loading, isConfigured, initialState]);
+
+  // Suscripción automática a las ideas reales del Organizador de Ideas (Local + Cloud Bridge + software-de-ideas)
+  useEffect(() => {
+    if (typeof window === 'undefined' || initialState) return;
+
+    const applyIncomingIdeas = (incoming: IdeaRecord[]) => {
+      const combinedMap = new Map<string, IdeaRecord>();
+      readRealIdeasFromLocalStorage().forEach((i) => combinedMap.set(i.id, i));
+      incoming.forEach((i) => {
+        const prev = combinedMap.get(i.id);
+        if (!prev || (i.updatedAt || '') >= (prev.updatedAt || '')) {
+          combinedMap.set(i.id, i);
+        }
+      });
+
+      const allRealIdeas = Array.from(combinedMap.values());
+      latestIdeasRef.current = allRealIdeas;
+
+      const { nextState, hasChanges } = mergeIdeasIntoDashboardState(
+        stateRef.current,
+        allRealIdeas
+      );
+      if (hasChanges) {
+        dispatch({ type: 'LOAD_STATE', payload: { state: nextState } });
+      }
+    };
+
+    // Aplicar de inmediato las ideas reales presentes en localStorage
+    const initialLocalIdeas = readRealIdeasFromLocalStorage();
+    if (initialLocalIdeas.length > 0) {
+      applyIncomingIdeas(initialLocalIdeas);
+    }
+
+    // Escuchar desde Firebase (`software-de-ideas` + `ideavault_sync_bridge`)
+    const unsubCloudIdeas = subscribeToRealIdeasCloud((cloudIdeas) => {
+      applyIncomingIdeas(cloudIdeas);
+    });
+
+    // Escuchar BroadcastChannel entre pestañas locales
+    let channel: BroadcastChannel | null = null;
+    try {
+      if ('BroadcastChannel' in window) {
+        channel = new BroadcastChannel(BRIDGE_CHANNEL_NAME);
+        channel.onmessage = (event) => {
+          if (event.data && Array.isArray(event.data.ideas)) {
+            applyIncomingIdeas(event.data.ideas as IdeaRecord[]);
+          }
+        };
+      }
+    } catch {
+      // Ignorar si BroadcastChannel no está soportado
+    }
+
+    const handleIdeaStorageEvent = (e: StorageEvent) => {
+      if (
+        e.key === BRIDGE_STORAGE_KEY ||
+        e.key === IDEAVAULT_STORAGE_KEY ||
+        (e.key && e.key.startsWith(IDEAVAULT_PROFILE_PREFIX))
+      ) {
+        applyIncomingIdeas(readRealIdeasFromLocalStorage());
+      }
+    };
+
+    window.addEventListener('storage', handleIdeaStorageEvent);
+
+    return () => {
+      unsubCloudIdeas();
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleIdeaStorageEvent);
+    };
+  }, [initialState]);
 
   // Guardado persistente con debounce (localStorage + Firestore solo tras hidratar desde la nube)
   useEffect(() => {
